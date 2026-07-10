@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { api } from './api'
 
-export const AuthContext.jsx = createContext(null)
+export const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
 
 export function AuthProvider({ children }) {
