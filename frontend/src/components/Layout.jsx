@@ -15,7 +15,7 @@ const NAV = [
 
 const S = {
   shell: { display: 'flex', minHeight: '100vh' },
-  sb: { width: 220, background: '#2A2A2A', display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' },
+  sb: { width: 220, background: '#0A3D3A', display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' },
   logo: { padding: '28px 22px 22px', borderBottom: '1px solid rgba(200,168,75,0.18)' },
   logoMark: { fontSize: 9, letterSpacing: 6, textTransform: 'uppercase', color: 'rgba(200,168,75,0.7)', marginBottom: 10 },
   logoWrap: { display: 'flex', alignItems: 'center', gap: 0 },
@@ -39,7 +39,7 @@ const S = {
   }),
   navDot: { width: 4, height: 4, borderRadius: '50%', background: 'currentColor', flexShrink: 0 },
   foot: { padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.06)' },
-  av: { width: 30, height: 30, borderRadius: '50%', background: '#C8A84B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#2A2A2A', flexShrink: 0 },
+  av: { width: 30, height: 30, borderRadius: '50%', background: '#C8A84B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#0A3D3A.', flexShrink: 0 },
   sbUser: { display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 },
   sbName: { fontSize: 11.5, color: 'rgba(255,255,255,0.68)' },
   sbTier: { fontSize: 9.5, color: 'rgba(200,168,75,0.7)', letterSpacing: 0.3 },
@@ -50,8 +50,8 @@ const S = {
   main: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 },
   topbar: { background: '#FAFAF8', borderBottom: '1px solid #DDD8CC', height: 58, padding: '0 28px', display: 'flex', alignItems: 'center', gap: 14, position: 'sticky', top: 0, zIndex: 50 },
   searchWrap: { flex: 1, maxWidth: 580, display: 'flex', border: '1px solid #DDD8CC' },
-  topInp: { flex: 1, border: 'none', padding: '0 14px', fontSize: 13, color: '#2A2A2A', outline: 'none', background: '#FAFAF8', fontFamily: 'inherit' },
-  topBtn: { background: '#2A2A2A', color: 'rgba(200,168,75,0.9)', border: 'none', padding: '0 18px', fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' },
+  topInp: { flex: 1, border: 'none', padding: '0 14px', fontSize: 13, color: '#0A3D3A.', outline: 'none', background: '#FAFAF8', fontFamily: 'inherit' },
+  topBtn: { background: '#0A3D3A.', color: 'rgba(200,168,75,0.9)', border: 'none', padding: '0 18px', fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' },
   topR: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 11 },
   mvp: { fontSize: 8.5, letterSpacing: 2, textTransform: 'uppercase', color: '#9A9488', border: '1px solid #DDD8CC', padding: '3px 7px' },
   content: { flex: 1, padding: 28, overflowY: 'auto' },
