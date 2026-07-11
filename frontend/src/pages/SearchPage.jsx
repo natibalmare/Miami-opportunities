@@ -12,22 +12,10 @@ const RECENT = [
 export default function SearchPage() {
   const [q, setQ] = useState('')
   const [chip, setChip] = useState('Address')
-  const [authOpen, setAuthOpen] = useState(false)
-  const nav = useNavigate()
-
-  const doSearch = (query) => {
-    const term = (query || q).trim()
-    if (!term) return
-    nav(`/report?q=${encodeURIComponent(term)}`)
-  }
-
-  return (
-    <div style={{ maxWidth: 640, margin: '0 auto', padding: '36px 0' }}>
-      {/* LOGO HERO */}
-      <div style={{ textAlign: 'center', marginBottom: 40 }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
-          <div style={{ fontSize: 52, fontWeight: 100, color: '#2A2A2A', letterSpacing: -4, lineHeight: 1 }}>M</div>
-          <div style={{ width: 1, height: 44, background: '#C8A84B' }} />
+  <div style={{ textAlign: 'center' }}>
+  <div style={{ fontSize: 48, fontWeight: 400, color: '#0A3D3A', letterSpacing: 6, lineHeight: 1 }}>MIAMI</div>
+  <div style={{ fontSize: 13, fontWeight: 400, color: '#C4A46B', letterSpacing: 5, textTransform: 'uppercase', marginTop: 4 }}>OPPORTUNITIES</div>
+</div>
           <div style={{ textAlign: 'left' }}>
             <div style={{ fontSize: 11, fontWeight: 300, color: '#A88C38', letterSpacing: 5, textTransform: 'uppercase', lineHeight: 1.4 }}>iami</div>
             <div style={{ fontSize: 11, fontWeight: 300, color: '#A88C38', letterSpacing: 5, textTransform: 'uppercase', lineHeight: 1.4 }}>portunities</div>
