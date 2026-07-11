@@ -81,7 +81,7 @@ export default function Layout() {
             <span style={S.logoSep} />
             <div style={S.logoRight}>
               <span style={S.logoMi}>Miami</span>
-              <span style={S.logoOp}>pportunities</span>
+              <span style={S.logoOp}>Opportunities</span>
             </div>
           </div>
         </div>
