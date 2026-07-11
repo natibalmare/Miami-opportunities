@@ -77,7 +77,7 @@ export default function Layout() {
       <aside style={S.sb}>
         <div style={S.logo}>
           <div style={S.logoWrap}>
-            <span style={S.logoM}>O</span>
+            <span style={S.logoM}>MO</span>
             <span style={S.logoSep} />
             <div style={S.logoRight}>
               <span style={S.logoMi}>Miami</span>
