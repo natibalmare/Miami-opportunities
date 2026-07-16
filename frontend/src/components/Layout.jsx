@@ -21,8 +21,8 @@ const S = {
   logoM: { fontSize: 38, fontWeight: 200, color: '#FAF8F2', letterSpacing: -2, lineHeight: 1 },
   logoSep: { width: 1, height: 30, background: '#C4A46B', margin: '0 10px', flexShrink: 0 },
   logoRight: { display: 'flex', flexDirection: 'column' },
-  logoMi: { fontSize: 12, fontWeight: 300, color: 'rgba(196,164,107,0.85)', letterSpacing: 4, textTransform: 'uppercase', lineHeight: 1.45 },
-  logoOp: { fontSize: 12, fontWeight: 300, color: 'rgba(196,164,107,0.85)', letterSpacing: 4, textTransform: 'uppercase', lineHeight: 1.45 },
+  logoMi: { fontSize: 9, fontWeight: 300, color: 'rgba(196,164,107,0.85)', letterSpacing: 4, textTransform: 'uppercase', lineHeight: 1.45 },
+  logoOp: { fontSize: 9, fontWeight: 300, color: 'rgba(196,164,107,0.85)', letterSpacing: 4, textTransform: 'uppercase', lineHeight: 1.45 },
   nav: { flex: 1, padding: '14px 0' },
   navSec: { fontSize: 8.5, letterSpacing: 2.5, textTransform: 'uppercase', color: 'rgba(201,228,213,0.3)', padding: '10px 22px 4px' },
   navItem: (active) => ({
