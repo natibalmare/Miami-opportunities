@@ -22,7 +22,18 @@ const app = express()
 /* ── SECURITY ──────────────────────────────────────────────────────────────── */
 app.use(helmet({ contentSecurityPolicy: false }))
 app.use(cors({
-  origin: [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000'],
+  origin: (origin, callback) => {
+    const allowed = [
+      process.env.FRONTEND_URL,
+      'http://localhost:5173',
+      'http://localhost:3000'
+    ]
+    if (!origin || allowed.includes(origin) || /\.vercel\.app$/.test(new URL(origin).hostname) || /miamiopportunities\.com$/.test(new URL(origin).hostname)) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
   credentials: true
 }))
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 150, message: { error: 'Rate limit exceeded. Please wait.' } }))
