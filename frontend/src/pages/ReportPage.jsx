@@ -1,6 +1,72 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { lookupProperty } from '../utils/mockDb'
+import { api } from '../utils/api'
+
+function mapMdpaToProperty(r) {
+  if (!r) return null
+  const owner1 = r.owner1 || 'Unknown'
+  const mailing = [r.mailingAddr, r.mailingCity, r.mailingState, r.mailingZip].filter(Boolean).join(', ')
+  const matchesProp = !!(r.mailingAddr && r.address && r.mailingAddr.toUpperCase().includes(r.address.toUpperCase().split(' ').slice(0, 2).join(' ')))
+  return {
+    folio: r.folio,
+    address: r.address,
+    city: r.city || 'Miami',
+    state: 'FL',
+    zip: r.zip,
+    neighborhood: r.subdivision || 'N/A',
+    propertyType: r.propertyType || 'N/A',
+    yearBuilt: r.yearBuilt,
+    beds: r.beds,
+    baths: r.baths,
+    livingArea: r.livingArea,
+    lotSize: r.lotSize,
+    zoning: r.zoning,
+    score: null,
+    financeability: null,
+    owner: {
+      name: owner1,
+      type: /LLC|INC|CORP|LTD/i.test(owner1) ? 'LLC' : 'Individual',
+      mailing: mailing || 'N/A',
+      matchesProp,
+      homestead: null,
+      occupancy: 'unknown',
+    },
+    tax: {
+      assessedValue: r.assessedValue,
+      annualTax: null,
+      status: 'verify',
+      delinquent: null,
+      sourceUrl: 'https://miamidade.county-taxes.com',
+    },
+    mortgage: { freeClear: null },
+    deeds: [],
+    liens: [],
+    foreclosure: { lispendens: false, active: false, urgency: 'low' },
+    permits: [],
+    codeViolations: [],
+    valuation: {
+      asIsEstimate: r.assessedValue,
+      confidence: 30,
+      source: 'Miami-Dade Property Appraiser assessed value (not a market estimate)',
+    },
+    comps: [],
+    nextSteps: [
+      'Verify tax status directly with Miami-Dade Tax Collector',
+      'Search Miami-Dade Clerk Official Records for mortgages and liens',
+      'Check City/County permit history before making an offer',
+      'Confirm foreclosure status at miamidade.realforeclose.com',
+    ],
+    strategy: 'Live parcel data pulled directly from the Miami-Dade Property Appraiser. Tax, lien, permit, foreclosure, and comp data are still pending integration — verify manually before making an offer.',
+    dataSources: [
+      { name: 'Miami-Dade PA', status: 'live-link', lastChecked: r.fetchedAt, confidence: 90 },
+      { name: 'Tax Collector', status: 'pending-integration', lastChecked: null, confidence: 0 },
+      { name: 'Clerk Records', status: 'pending-integration', lastChecked: null, confidence: 0 },
+      { name: 'City Permits', status: 'pending-integration', lastChecked: null, confidence: 0 },
+      { name: 'MLS / iMapp', status: 'auth-required', lastChecked: null, confidence: 0 },
+    ],
+  }
+}
 import { useAuth } from '../utils/AuthContext'
 import ScoreRing from '../components/ScoreRing'
 import AuthModal from '../components/AuthModal'
@@ -61,13 +127,36 @@ export default function ReportPage() {
 
   useEffect(() => {
     setLoading(true); setNotFound(false); setProp(null); setUnlocked(false); setTab('Overview')
-    const t = setTimeout(() => {
-      const found = lookupProperty(q)
-      if (found) setProp(found)
-      else setNotFound(true)
-      setLoading(false)
-    }, 1500)
-    return () => clearTimeout(t)
+    let cancelled = false
+
+    async function run() {
+      const demo = lookupProperty(q)
+      if (demo) {
+        if (!cancelled) { setProp(demo); setLoading(false) }
+        return
+      }
+      try {
+        const cleanQ = q.replace(/[-\s]/g, '')
+        const type = /^\d{13}$/.test(cleanQ) ? 'folio'
+          : /\bllc\b|\binc\b|\bcorp\b/i.test(q) ? 'company'
+          : /^\d+\s+[nwse]/i.test(q) || /\b(st|ave|blvd|rd|dr|ct|ln|ter|pl|way)\b/i.test(q) ? 'address'
+          : 'owner'
+        const res = await api.search(q, type)
+        const first = res?.results?.[0]
+        const mapped = mapMdpaToProperty(first)
+        if (!cancelled) {
+          if (mapped) setProp(mapped)
+          else setNotFound(true)
+          setLoading(false)
+        }
+      } catch (e) {
+        console.error('Live search failed:', e.message)
+        if (!cancelled) { setNotFound(true); setLoading(false) }
+      }
+    }
+
+    run()
+    return () => { cancelled = true }
   }, [q])
 
   const scoreColor = (s) => s >= 76 ? '#B84040' : s >= 51 ? '#A88C38' : s >= 26 ? '#8C6010' : '#9A9488'
