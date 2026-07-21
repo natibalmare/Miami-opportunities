@@ -27,6 +27,8 @@ router.get('/', optionalAuth, async (req, res) => {
       liveData = await mdpa.searchByAddress(q.trim())
     } else if (type === 'folio') {
       liveData = await mdpa.searchByFolio(q.trim())
+    } else if (type === 'owner') {
+      liveData = await mdpa.searchByOwnerName(q.trim())
     }
 
     if (liveData) {
