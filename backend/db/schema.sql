@@ -4,7 +4,6 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "postgis"; -- for geographic searches
 
 -- ── USERS ────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
@@ -14,9 +13,9 @@ CREATE TABLE IF NOT EXISTS users (
   first_name          TEXT NOT NULL,
   last_name           TEXT NOT NULL,
   phone               TEXT,
-  role                TEXT DEFAULT 'buyer',     -- buyer | seller | agent | admin
+  role                TEXT DEFAULT 'buyer',
   needs_agent         BOOLEAN DEFAULT true,
-  plan                TEXT DEFAULT 'free',      -- free | report | member
+  plan                TEXT DEFAULT 'free',
   stripe_customer_id  TEXT,
   email_verified      BOOLEAN DEFAULT false,
   phone_verified      BOOLEAN DEFAULT false,
@@ -29,7 +28,7 @@ CREATE TABLE IF NOT EXISTS properties (
   id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   folio             TEXT UNIQUE NOT NULL,
   address           TEXT NOT NULL,
-  address_norm      TEXT,                       -- normalized for search
+  address_norm      TEXT,
   city              TEXT,
   state             TEXT DEFAULT 'FL',
   zip               TEXT,
@@ -52,7 +51,6 @@ CREATE TABLE IF NOT EXISTS properties (
   financeability    TEXT,
   latitude          NUMERIC,
   longitude         NUMERIC,
-  geom              GEOGRAPHY(POINT, 4326),     -- PostGIS
   raw_data          JSONB,
   last_fetched      TIMESTAMPTZ,
   created_at        TIMESTAMPTZ DEFAULT NOW(),
@@ -63,7 +61,6 @@ CREATE INDEX IF NOT EXISTS idx_props_folio     ON properties(folio);
 CREATE INDEX IF NOT EXISTS idx_props_address   ON properties(address_norm);
 CREATE INDEX IF NOT EXISTS idx_props_zip       ON properties(zip);
 CREATE INDEX IF NOT EXISTS idx_props_nbh       ON properties(neighborhood);
-CREATE INDEX IF NOT EXISTS idx_props_geom      ON properties USING GIST(geom);
 
 -- ── OWNERS ────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS owners (
@@ -71,11 +68,11 @@ CREATE TABLE IF NOT EXISTS owners (
   property_id     UUID REFERENCES properties(id),
   folio           TEXT,
   name            TEXT,
-  owner_type      TEXT,                         -- individual | LLC | trust | estate | corp
+  owner_type      TEXT,
   mailing_address TEXT,
   matches_prop    BOOLEAN,
   homestead       BOOLEAN DEFAULT false,
-  occupancy       TEXT,                         -- owner-occupied | absentee | unknown
+  occupancy       TEXT,
   llc_state       TEXT,
   sunbiz_id       TEXT,
   as_of           TIMESTAMPTZ DEFAULT NOW()
@@ -137,7 +134,7 @@ CREATE TABLE IF NOT EXISTS taxes (
   assessed_land       NUMERIC,
   assessed_improve    NUMERIC,
   market_value        NUMERIC,
-  tax_status          TEXT,         -- paid | delinquent | unknown
+  tax_status          TEXT,
   delinquent          BOOLEAN DEFAULT false,
   prior_yr_delinquent BOOLEAN DEFAULT false,
   amount_due          NUMERIC,
@@ -170,7 +167,7 @@ CREATE TABLE IF NOT EXISTS tax_deeds (
 CREATE TABLE IF NOT EXISTS liens (
   id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   folio           TEXT,
-  lien_type       TEXT,             -- mortgage | hoa | code | mechanic | irs | state | judgment
+  lien_type       TEXT,
   creditor        TEXT,
   amount          NUMERIC,
   recording_date  DATE,
@@ -191,7 +188,7 @@ CREATE TABLE IF NOT EXISTS court_cases (
   folio           TEXT,
   owner_name      TEXT,
   case_number     TEXT,
-  case_type       TEXT,             -- foreclosure | probate | divorce | civil | bankruptcy
+  case_type       TEXT,
   filing_date     DATE,
   plaintiff       TEXT,
   defendant       TEXT,
@@ -215,7 +212,7 @@ CREATE TABLE IF NOT EXISTS foreclosure_cases (
   auction_date    DATE,
   auction_url     TEXT,
   opening_bid     NUMERIC,
-  auction_status  TEXT,             -- upcoming | canceled | reset | completed
+  auction_status  TEXT,
   urgency         TEXT DEFAULT 'low',
   recommendation  TEXT
 );
@@ -226,7 +223,7 @@ CREATE TABLE IF NOT EXISTS permits (
   folio           TEXT,
   permit_type     TEXT,
   permit_number   TEXT,
-  status          TEXT,             -- open | closed | expired | voided
+  status          TEXT,
   issue_date      DATE,
   description     TEXT,
   contractor      TEXT,
@@ -319,7 +316,7 @@ CREATE TABLE IF NOT EXISTS notes (
 CREATE TABLE IF NOT EXISTS contact_attempts (
   id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   lead_id         UUID REFERENCES leads(id) ON DELETE CASCADE,
-  type            TEXT,             -- call | mail | text | email | in-person
+  type            TEXT,
   date            DATE DEFAULT CURRENT_DATE,
   note            TEXT,
   outcome         TEXT
@@ -373,7 +370,6 @@ CREATE TABLE IF NOT EXISTS neighborhoods (
   name            TEXT UNIQUE NOT NULL,
   county          TEXT DEFAULT 'Miami-Dade',
   active          BOOLEAN DEFAULT true,
-  geom            GEOGRAPHY(POLYGON, 4326),
   created_by      UUID
 );
 
@@ -386,7 +382,7 @@ CREATE TABLE IF NOT EXISTS data_sources (
   status          TEXT DEFAULT 'pending',
   last_tested     TIMESTAMPTZ,
   confidence      INT,
-  config          JSONB,             -- encrypted config, no plaintext passwords
+  config          JSONB,
   error_message   TEXT
 );
 
@@ -427,7 +423,7 @@ ON CONFLICT (name) DO NOTHING;
 
 -- ── SEED DATA SOURCES ─────────────────────────────────────────────────────────
 INSERT INTO data_sources (name, source_url, api_type, status, confidence) VALUES
-  ('Miami-Dade Property Appraiser', 'https://www.miamidade.gov/propertysearch', 'REST API', 'pending', 0),
+  ('Miami-Dade Property Appraiser', 'https://gisweb.miamidade.gov/arcgis/rest/services/MD_LandInformation/MapServer/26', 'ArcGIS REST', 'live-link', 90),
   ('Miami-Dade Tax Collector', 'https://miamidade.county-taxes.com', 'Portal', 'pending', 0),
   ('Clerk Official Records', 'https://onlineservices.miamidadeclerk.gov/officialrecords', 'Paid Search', 'pending', 0),
   ('Civil / Probate Courts', 'https://www.miamidadeclerk.gov/clerk/civil-court.page', 'Portal', 'pending', 0),
