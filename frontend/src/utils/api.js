@@ -36,9 +36,11 @@ export const api = {
   getLiens: (folio) => req(`/api/liens/${folio}`),
   lookupLLC: (name) => req(`/api/llc?name=${encodeURIComponent(name)}`),
 
-  checkoutReport:  (folio) => req('/api/payments/checkout', { method: 'POST', body: { type: 'report', folio } }),
-  checkoutMonthly: () => req('/api/payments/subscribe', { method: 'POST', body: { plan: 'monthly' } }),
-  checkoutAnnual:  () => req('/api/payments/subscribe', { method: 'POST', body: { plan: 'annual' } }),
+  checkoutReport:     (folio) => req('/api/payments/checkout', { method: 'POST', body: { folio } }),
+  checkoutMembership: (plan)  => req('/api/payments/membership/checkout', { method: 'POST', body: { plan } }),
+  unlockWithCredit:   (folio) => req('/api/payments/unlock', { method: 'POST', body: { folio } }),
+  getBalance:         () => req('/api/payments/balance'),
+  getBillingPortal:   () => req('/api/payments/portal'),
 
   getLeads:    () => req('/api/leads'),
   saveLead:    (d) => req('/api/leads', { method: 'POST', body: d }),
