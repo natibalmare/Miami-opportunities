@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS users (
   plan                TEXT DEFAULT 'free',
   stripe_customer_id  TEXT,
   email_verified      BOOLEAN DEFAULT false,
+  email_verify_code   TEXT,
+  email_verify_expires TIMESTAMPTZ,
   phone_verified      BOOLEAN DEFAULT false,
   created_at          TIMESTAMPTZ DEFAULT NOW(),
   updated_at          TIMESTAMPTZ DEFAULT NOW()
