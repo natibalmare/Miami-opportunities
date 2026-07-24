@@ -7,7 +7,7 @@ async function hasAccess(userId, folio) {
   if (!userId) return false
   /* Check membership plan */
   const u = await query('SELECT plan FROM users WHERE id = $1', [userId])
-  if (u.rows[0]?.plan === 'member') return true
+  if (u.rows[0]?.plan === 'gold') return true
   /* Check individual purchase */
   const p = await query(
     `SELECT id FROM report_purchases WHERE user_id=$1 AND folio=$2 AND status='completed'`,
@@ -58,10 +58,17 @@ router.get('/:folio', optionalAuth, async (req, res) => {
     if (!report.property) return res.status(404).json({ error: 'Property not found' })
 
     if (!paid) {
+      let credits = 0
+      if (req.user?.id) {
+        const c = await query('SELECT credits FROM users WHERE id=$1', [req.user.id])
+        credits = c.rows[0]?.credits ?? 0
+      }
+
       /* Free tier — redact sensitive fields */
       return res.json({
         access: 'free',
         folio,
+        credits,
         property:    report.property,
         owner: report.owner ? {
           name:       report.owner.name,
@@ -87,7 +94,7 @@ router.get('/:folio', optionalAuth, async (req, res) => {
         } : null,
         paywall: {
           locked_sections: ['Full owner details', 'Deed history', 'All liens & amounts', 'Mortgage analysis', 'Permit details', 'Code violations', 'Full comps', 'ARV estimate', 'Next steps', 'PDF export'],
-          pricing: { report: 5.99, monthly: 29.00, annual: 299.00 }
+          pricing: { report: 25.00, basic: 29.00, pro: 99.00, gold: 250.00 }
         }
       })
     }
