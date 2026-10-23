@@ -8,7 +8,7 @@ const EMPTY = {
   counties: [], types: [], zip: '', city: '', street: '', subdivision: '', owner: '',
   minLiving: '', maxLiving: '', minLot: '', maxLot: '', minBeds: '', minBaths: '', minUnits: '', maxUnits: '',
   minYear: '', maxYear: '', minValue: '', maxValue: '',
-  soldAfter: '', soldBefore: '', minSale: '', maxSale: '', ownedYears: '',
+  recentSale: false, minSale: '', maxSale: '',
   occupancy: '', ownerType: '', outOfState: false, sort: 'value_desc',
 }
 
@@ -83,8 +83,8 @@ export default function CriteriaSearch() {
         minLiving: f.minLiving, maxLiving: f.maxLiving, minLot: f.minLot, maxLot: f.maxLot,
         minBeds: f.minBeds, minBaths: f.minBaths, minUnits: f.minUnits, maxUnits: f.maxUnits,
         minYear: f.minYear, maxYear: f.maxYear, minValue: f.minValue, maxValue: f.maxValue,
-        soldAfter: f.soldAfter, soldBefore: f.soldBefore, minSale: f.minSale, maxSale: f.maxSale,
-        ownedYears: f.ownedYears, occupancy: f.occupancy, ownerType: f.ownerType,
+        recentSale: f.recentSale ? 'true' : '', minSale: f.minSale, maxSale: f.maxSale,
+        occupancy: f.occupancy, ownerType: f.ownerType,
         outOfState: f.outOfState ? 'true' : '', sort: f.sort, page: pg, pageSize: 50,
       }
       const r = await api.criteriaSearch(params)
@@ -172,16 +172,16 @@ export default function CriteriaSearch() {
           </div>
 
           <div style={S.group}>
-            <div style={S.groupTitle}>Value &amp; Sale History</div>
+            <div style={S.groupTitle}>Value &amp; Recent Sales</div>
             <Range label="Assessed (just) value $" lo="minValue" hi="maxValue" set={set} f={f} />
-            <Range label="Last sale price $" lo="minSale" hi="maxSale" set={set} f={f} />
-            <div className="form-label" style={{ marginBottom: 4 }}>Last sold between</div>
-            <div style={{ ...S.pair, marginBottom: 8 }}>
-              <input className="input" style={S.small} type="date" value={f.soldAfter} onChange={e => set('soldAfter', e.target.value)} />
-              <input className="input" style={S.small} type="date" value={f.soldBefore} onChange={e => set('soldBefore', e.target.value)} />
-            </div>
-            <div className="form-label" style={{ marginBottom: 4 }}>Owned at least (years)</div>
-            <input className="input" style={S.small} inputMode="numeric" placeholder="e.g. 15" value={f.ownedYears} onChange={e => set('ownedYears', e.target.value)} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, margin: '4px 0 8px' }}>
+              <input type="checkbox" checked={f.recentSale} onChange={e => set('recentSale', e.target.checked)} /> Sold in the last 1–2 years
+            </label>
+            <Range label="Recent sale price $" lo="minSale" hi="maxSale" set={set} f={f} />
+            <div style={S.hint}>The state tax roll only lists sales from the last 1–2 years. Older sale dates and "owned for X years" need full deed history from the county clerks (on the outreach list).</div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#A8B4B3', marginTop: 8 }}>
+              <input type="checkbox" disabled /> Owned 10+ years <span className="badge badge-gold" style={{ marginLeft: 'auto', fontSize: 8.5 }}>Soon</span>
+            </label>
           </div>
 
           <div style={S.group}>
@@ -243,7 +243,6 @@ export default function CriteriaSearch() {
                   <select className="input" style={{ ...S.small, width: 'auto' }} value={f.sort} onChange={e => { set('sort', e.target.value) }}>
                     <option value="value_desc">Value: high → low</option>
                     <option value="value_asc">Value: low → high</option>
-                    <option value="sale_old">Longest owned</option>
                     <option value="sale_new">Most recent sale</option>
                     <option value="living_desc">Largest home</option>
                     <option value="lot_desc">Largest lot</option>

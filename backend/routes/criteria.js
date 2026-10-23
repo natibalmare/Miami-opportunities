@@ -17,8 +17,10 @@ const num = (v) => {
 const list = (v) => String(v || '').split(',').map(s => s.trim()).filter(Boolean)
 
 /* GET /api/criteria/meta — which counties are loaded and what can be filtered */
+let metaCache = null
 router.get('/meta', async (req, res) => {
   try {
+    if (metaCache && metaCache.expires > Date.now()) return res.json(metaCache.body)
     const r = await query(`
       SELECT county_no, COUNT(*)::int AS properties, MAX(roll_year) AS roll_year, MAX(roll_type) AS roll_type
         FROM parcels GROUP BY county_no`)
@@ -26,7 +28,7 @@ router.get('/meta', async (req, res) => {
       SELECT DISTINCT ON (county_no, source) county_no, source, status, finished_at, rows_loaded
         FROM data_imports ORDER BY county_no, source, started_at DESC`)
     const byCounty = Object.fromEntries(r.rows.map(x => [x.county_no, x]))
-    res.json({
+    const body = {
       counties: Object.values(COUNTIES).map(c => {
         const stats = byCounty[c.no] || {}
         const roll = loads.rows.find(l => l.county_no === c.no && l.source === 'fdor-nal')
@@ -43,7 +45,10 @@ router.get('/meta', async (req, res) => {
       }),
       propertyTypes: Object.entries(PROPERTY_TYPES).map(([key, t]) => ({ key, label: t.label })),
       source: 'Florida Department of Revenue tax roll; Miami-Dade beds/baths from the Miami-Dade Property Appraiser',
-    })
+    }
+    const anyLoading = body.counties.some(c => c.loading)
+    metaCache = { body, expires: Date.now() + (anyLoading ? 60 : 30 * 60) * 1000 }
+    res.json(body)
   } catch (e) {
     console.error(e)
     res.status(500).json({ error: 'Could not load search options' })
@@ -95,7 +100,7 @@ router.get('/', requireAuth, async (req, res) => {
     /* Last sale */
     if (q.soldAfter) add('sale_date1 >= ?::date', String(q.soldAfter))
     if (q.soldBefore) add('sale_date1 <= ?::date', String(q.soldBefore))
-    if (num(q.ownedYears) !== null) add('sale_date1 <= (CURRENT_DATE - make_interval(years => ?::int))', Math.round(num(q.ownedYears)))
+    if (q.recentSale === 'true') where.push('sale_date1 IS NOT NULL')
 
     /* Owner indicators */
     if (q.occupancy === 'absentee') where.push('absentee = true')
