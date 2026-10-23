@@ -38,6 +38,8 @@ export const api = {
   search: (q, type = 'address') =>
     req(`/api/search?q=${encodeURIComponent(q)}&type=${type}`),
 
+  getRates: () => req('/api/market/rates'),
+  getRents: (zip) => req(`/api/market/rents/${encodeURIComponent(zip)}`),
   getCriteriaMeta: () => req('/api/criteria/meta'),
   criteriaSearch: (params) => req(`/api/criteria?${new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v !== null && v !== undefined))}`),
   suggestAddresses: (q) => req(`/api/search/suggest?q=${encodeURIComponent(q)}`),
@@ -71,5 +73,6 @@ export const api = {
   postListing: (d) => req('/api/board', { method: 'POST', body: d }),
 
   getSources: () => req('/api/sources'),
+  getSourceCatalog: () => req('/api/sources/catalog'),
   testSource: (id) => req(`/api/sources/${id}/test`, { method: 'POST' })
 }

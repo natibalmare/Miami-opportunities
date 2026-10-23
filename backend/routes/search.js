@@ -4,6 +4,7 @@ const { optionalAuth } = require('../middleware/auth')
 const mdpa = require('../adapters/mdpa')
 const { COUNTIES } = require('../config/counties')
 const { findParcel, parcelToReport } = require('./criteria')
+const { scoreMany } = require('../utils/opportunityScore')
 
 function detectType(q) {
   const c = q.trim()
@@ -59,12 +60,60 @@ router.get('/suggest', async (req, res) => {
       .sort((a, b) => a.address.localeCompare(b.address, 'en', { numeric: true }))
       .slice(0, 8)
     if (md === null && !other.length) return res.status(502).json({ suggestions: [], error: 'County records are not responding' })
-    res.json({ suggestions, source: 'Miami-Dade Property Appraiser (live) · Florida Dept. of Revenue tax roll' })
+    res.json({ suggestions })
   } catch (e) {
     console.error('Suggest failed:', e.message)
     res.status(500).json({ suggestions: [] })
   }
 })
+
+/* Add state-roll details (homestead, recent sale, use code) to live Miami-Dade results, then score everything */
+async function enrichAndScore(results) {
+  const mdFolios = results.filter(r => r && r.county === 'Miami-Dade' && r.folio && r.homestead === undefined).map(r => String(r.folio))
+  if (mdFolios.length) {
+    try {
+      const r = await query(
+        `SELECT parcel_id, dor_uc, homestead, absentee, own_state, sale_price1, to_char(sale_date1, 'YYYY-MM-DD') AS sale_date1
+           FROM parcels WHERE county_no = 23 AND parcel_id = ANY($1::text[])`, [mdFolios])
+      const byFolio = new Map(r.rows.map(x => [x.parcel_id, x]))
+      for (const item of results) {
+        const x = byFolio.get(String(item.folio))
+        if (!x) continue
+        item.countyNo = 23
+        item.useCode = x.dor_uc
+        item.homestead = x.homestead
+        item.absentee = x.absentee
+        if (!item.mailingState && x.own_state) item.mailingState = x.own_state
+        item.lastSalePrice = x.sale_price1 ? Number(x.sale_price1) : null
+        item.lastSaleDate = x.sale_date1
+      }
+    } catch (e) {
+      console.error('Miami-Dade enrich failed:', e.message)
+    }
+  }
+  const scorable = results.filter(r => r && r.folio && r.address)
+  if (!scorable.length) return results
+  const scores = await scoreMany(scorable.map(r => ({
+    countyNo: r.countyNo || (r.county === 'Miami-Dade' ? 23 : null),
+    zip: String(r.zip || '').slice(0, 5),
+    useCode: r.useCode ?? null,
+    value: r.assessedValue,
+    livingSqft: Number(r.livingArea) || null,
+    yearBuilt: r.yearBuilt,
+    owner: r.owner1,
+    ownerState: r.mailingState,
+    homestead: r.homestead,
+    absentee: r.absentee,
+    recentSale: !!r.lastSaleDate,
+  })))
+  scorable.forEach((r, i) => {
+    r.score = scores[i].score
+    r.scoreLabel = scores[i].label
+    r.scoreFactors = scores[i].factors
+    r.financeability = scores[i].financeability
+  })
+  return results
+}
 
 router.get('/', optionalAuth, async (req, res) => {
   try {
@@ -148,6 +197,8 @@ router.get('/', optionalAuth, async (req, res) => {
       query(`INSERT INTO audit_logs (user_id, action, resource, resource_id) VALUES ($1,'search',$2,$3)`,
         [req.user.id, type, q.trim()]).catch(() => {})
     }
+
+    if (source !== 'demo') await enrichAndScore(results)
 
     res.json({ query: q, type, count: results.length, results, source })
   } catch (e) {

@@ -104,11 +104,6 @@ export default function AddressSearchInput({ value, onChange, onSubmit, onPick, 
           {loading && items.length === 0 && (
             <div style={{ padding: '10px 14px', fontSize: 11.5, color: '#9A9488' }}>Looking up Miami-Dade addresses…</div>
           )}
-          {items.length > 0 && (
-            <div style={{ padding: '6px 14px', fontSize: 9.5, color: '#A8B4B3', letterSpacing: 0.3, background: '#FAF8F2' }}>
-              Source: Miami-Dade Property Appraiser
-            </div>
-          )}
         </div>
       )}
     </div>

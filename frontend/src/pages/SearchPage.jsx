@@ -80,7 +80,7 @@ export default function SearchPage() {
       <div style={{ textAlign: 'center', margin: '16px 0', display: 'flex', gap: 8, justifyContent: 'center' }}>
         <button className="btn btn-outline btn-sm" onClick={() => setAuthOpen(true)}>Create Free Account</button>
         <button className="btn btn-gold btn-sm" onClick={() => nav('/criteria')}>Search by Criteria</button>
-        <button className="btn btn-outline btn-sm" onClick={() => nav('/report?q=332+NW+35th+St+Miami')}>View Sample Report</button>
+        <button className="btn btn-outline btn-sm" onClick={() => nav('/report?q=332+NW+35th+St+Miami&sample=1')}>View Sample Report</button>
       </div>
       <div style={{ textAlign: 'center', fontSize: 10.5, color: '#A8B4B3', marginBottom: 28 }}>
         Free preview on every property · Full report includes owner contact, liens, foreclosure, comps & buyer strategy
@@ -101,29 +101,6 @@ export default function SearchPage() {
           <span style={{ fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase', background: '#E8E4D8', color: '#607070', padding: '2px 7px', borderRadius: 2 }}>{r.type}</span>
         </div>
       ))}
-
-      {/* DATA SOURCES */}
-      <div className="gold-rule" style={{ marginTop: 24 }}><div className="gold-rule-line" /><div className="gold-rule-text">Intelligence Sources</div><div className="gold-rule-line rev" /></div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
-        {[
-          ['Miami-Dade PA', 'Property & Ownership', 'Live'],
-          ['FL Dept. of Revenue', 'Broward & Palm Beach Rolls', 'Live'],
-          ['Tax Collector', 'Tax & Delinquency', 'Pending'],
-          ['Clerk Records', 'Liens & Foreclosure', 'Pending'],
-          ['Civil Courts', 'Cases & Judgments', 'Pending'],
-          ['realforeclose.com', 'Auction Dates', 'Live Link'],
-          ['SunBiz', 'LLC Lookup', 'Free'],
-          ['City Permits', 'Violations & Permits', 'Pending'],
-          ['MLS / iMapp', 'Comps & Listings', 'Auth Req'],
-          ['BatchSkipTrace', 'Owner Contact', 'Pending'],
-        ].map(([name, fields, status]) => (
-          <div key={name} style={{ background: '#F0EDE4', border: '1px solid #D8D4C8', borderRadius: 5, padding: '8px 10px' }}>
-            <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 2 }}>{name}</div>
-            <div style={{ fontSize: 10, color: '#7A8A89', marginBottom: 5 }}>{fields}</div>
-            <span className={status === 'Live' || status === 'Live Link' || status === 'Free' ? 'badge badge-green' : 'badge badge-gold'}>{status}</span>
-          </div>
-        ))}
-      </div>
 
       <div className="legal-notice" style={{ marginTop: 20 }}>
         This tool uses legally accessible public records only. Data is for lawful real estate research and does not constitute legal advice, a title opinion, or an appraisal. Consult a licensed Florida real estate attorney and title company before any offer. Do not use to harass or pressure property owners.

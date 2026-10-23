@@ -5,6 +5,7 @@ const router = require('express').Router()
 const { query } = require('../db/pool')
 const { requireAuth } = require('../middleware/auth')
 const { COUNTIES, PROPERTY_TYPES, useLabel } = require('../config/counties')
+const { scoreMany } = require('../utils/opportunityScore')
 
 const MAX_PAGE = 100
 const COUNT_CAP = 10000
@@ -159,6 +160,14 @@ router.get('/', requireAuth, async (req, res) => {
       rollYear: r.roll_year,
     }))
 
+    const scores = await scoreMany(rowsR.rows.map(r => ({
+      countyNo: r.county_no, zip: r.phy_zip, useCode: r.dor_uc,
+      value: r.just_value ? Number(r.just_value) : null, livingSqft: r.living_sqft ? Number(r.living_sqft) : null,
+      yearBuilt: r.year_built, owner: r.own_name, ownerState: r.own_state,
+      homestead: r.homestead, absentee: r.absentee, recentSale: !!r.sale_date1,
+    })))
+    results.forEach((r, i) => { r.score = scores[i].score; r.scoreLabel = scores[i].label })
+
     query(`INSERT INTO audit_logs (user_id, action, resource, resource_id) VALUES ($1,'criteria_search','parcels',$2)`,
       [req.user.id, JSON.stringify(q).slice(0, 500)]).catch(() => {})
 
@@ -185,6 +194,8 @@ function parcelToReport(p) {
   const c = COUNTIES[p.county_no] || {}
   return {
     folio: p.parcel_id,
+    countyNo: p.county_no,
+    useCode: p.dor_uc,
     county: c.name,
     countySlug: c.slug,
     address: p.phy_addr1,

@@ -1,9 +1,14 @@
 const router = require('express').Router()
 const { query } = require('../db/pool')
-const { requireAuth } = require('../middleware/auth')
+const { requireAdmin } = require('../middleware/auth')
+
+/* GET /api/sources/catalog — integration list for the admin Data Sources page */
+router.get('/catalog', requireAdmin, (req, res) => {
+  res.json(require('../config/sourcesCatalog').SOURCES)
+})
 
 /* GET /api/sources */
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAdmin, async (req, res) => {
   try {
     const r = await query('SELECT id, name, source_url, api_type, status, last_tested, confidence, error_message FROM data_sources ORDER BY name')
     res.json(r.rows)
@@ -13,7 +18,7 @@ router.get('/', requireAuth, async (req, res) => {
 })
 
 /* POST /api/sources/:id/test — ping each source */
-router.post('/:id/test', requireAuth, async (req, res) => {
+router.post('/:id/test', requireAdmin, async (req, res) => {
   try {
     const r = await query('SELECT * FROM data_sources WHERE id=$1', [req.params.id])
     const src = r.rows[0]

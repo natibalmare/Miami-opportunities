@@ -89,7 +89,7 @@ export default function Layout() {
         </div>
 
         <nav style={S.nav}>
-          {NAV.map(item => {
+          {NAV.filter(item => item.path !== '/sources' || user?.isAdmin).map(item => {
             const showSec = item.section && item.section !== lastSec
             if (item.section) lastSec = item.section
             const active = loc.pathname === item.path
@@ -120,16 +120,6 @@ export default function Layout() {
           )}
         </div>
 
-        <div style={S.sources}>
-          <div style={S.srcHead}>Data Sources</div>
-          {[['MDPA', false], ['Tax Collector', false], ['Clerk Records', false], ['MLS / iMapp', false], ['City Permits', false]].map(([name, live]) => (
-            <div key={name} style={S.srcRow}>
-              <div style={S.srcDot(live)} />
-              {name}
-            </div>
-          ))}
-          <button className="btn btn-ghost btn-sm" style={{ width: '100%', marginTop: 9, color: 'rgba(196,164,107,0.6)', borderColor: 'rgba(196,164,107,0.15)', fontSize: 9 }} onClick={() => go('/sources')}>Configure Sources →</button>
-        </div>
       </aside>
 
       {/* MAIN */}
@@ -156,6 +146,9 @@ export default function Layout() {
 
         <main style={S.content}>
           <Outlet />
+          <div style={{ marginTop: 36, paddingTop: 12, borderTop: '1px solid #E8E4D8', fontSize: 10, color: '#A8B4B3', lineHeight: 1.6 }}>
+            Information compiled from public records and believed reliable but not guaranteed. Not a title search, legal opinion, or appraisal — verify independently before acting.
+          </div>
         </main>
       </div>
 

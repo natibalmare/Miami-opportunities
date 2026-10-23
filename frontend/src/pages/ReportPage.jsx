@@ -19,7 +19,6 @@ function mapMdpaToProperty(r) {
     ? !r.absentee
     : !!(r.mailingAddr && r.address && r.mailingAddr.toUpperCase().includes(r.address.toUpperCase().split(' ').slice(0, 2).join(' ')))
   const occupancy = r.homestead === true ? 'owner-occupied' : r.absentee === true ? 'absentee-owner' : 'unknown'
-  const sourceName = isMD && !r.lastSaleDate ? 'Miami-Dade PA' : `${county} — FL Dept. of Revenue tax roll`
   return {
     folio: r.folio,
     county,
@@ -35,8 +34,10 @@ function mapMdpaToProperty(r) {
     livingArea: r.livingArea,
     lotSize: r.lotSize,
     zoning: r.zoning,
-    score: null,
-    financeability: null,
+    score: r.score ?? null,
+    scoreLabel: r.scoreLabel || null,
+    scoreFactors: r.scoreFactors || [],
+    financeability: r.financeability ?? null,
     owner: {
       name: owner1,
       type: /LLC|INC|CORP|LTD/i.test(owner1) ? 'LLC' : /TRUST|\bTR\b|ESTATE/i.test(owner1) ? 'Trust' : 'Individual',
@@ -71,24 +72,18 @@ function mapMdpaToProperty(r) {
       `Confirm foreclosure status with the ${county} Clerk`,
     ],
     links,
-    strategy: `Parcel data from ${isMD && !r.lastSaleDate ? 'the Miami-Dade Property Appraiser (live)' : `the Florida Department of Revenue ${county} tax roll`}. Tax, lien, permit, foreclosure, and comp data are still pending integration — verify manually before making an offer.`,
-    dataSources: [
-      { name: sourceName, status: 'live-link', lastChecked: r.fetchedAt, confidence: 90 },
-      { name: `${county} Tax Collector`, status: 'pending-integration', lastChecked: null, confidence: 0 },
-      { name: `${county} Clerk Records`, status: 'pending-integration', lastChecked: null, confidence: 0 },
-      { name: 'City Permits', status: 'pending-integration', lastChecked: null, confidence: 0 },
-      { name: 'MLS / iMapp', status: 'auth-required', lastChecked: null, confidence: 0 },
-    ],
+    strategy: `Ownership, value and building details come from official ${county} public records. Tax status, liens, permits, foreclosure and comparable sales are being added — verify them before making an offer.`,
   }
 }
 import { useAuth } from '../utils/AuthContext'
 import ScoreRing from '../components/ScoreRing'
 import AuthModal from '../components/AuthModal'
 import PaymentModal from '../components/PaymentModal'
+import InvestmentCalculator from '../components/InvestmentCalculator'
 
 const fmt = { currency: n => n ? '$' + n.toLocaleString() : 'N/A', date: d => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A' }
 
-const TABS = ['Overview', 'Ownership', 'Taxes & Liens', 'Foreclosure', 'Permits', 'Valuation', 'Next Steps', 'Sources']
+const TABS = ['Overview', 'Ownership', 'Taxes & Liens', 'Foreclosure', 'Permits', 'Valuation', 'Investment', 'Next Steps']
 
 function SectionHead({ title, badge, badgeType = 'silver', collapsible, collapsed, onToggle }) {
   return (
@@ -144,7 +139,8 @@ export default function ReportPage() {
     let cancelled = false
 
     async function run() {
-      const demo = lookupProperty(q)
+      /* Sample data only for the 'View Sample Report' button — real searches always use live records */
+      const demo = params.get('sample') === '1' ? lookupProperty(q) : null
       if (demo) {
         if (!cancelled) { setProp(demo); setLoading(false) }
         return
@@ -171,7 +167,7 @@ export default function ReportPage() {
 
     run()
     return () => { cancelled = true }
-  }, [q])
+  }, [q, params.get('sample')])
 
   /* Is this report already unlocked for the signed-in user?
      After a Stripe payment (?paid=true) keep checking briefly while the payment confirms. */
@@ -201,12 +197,7 @@ export default function ReportPage() {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', gap: 14 }}>
       <div className="loading-bar" style={{ width: 300 }} />
       <div style={{ fontSize: 14, fontWeight: 300, color: '#2A2A2A' }}>Running intelligence check on "{q}"</div>
-      <div style={{ fontSize: 11.5, color: '#9A9488' }}>Querying public record sources</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 8 }}>
-        {['Property Appraiser', 'Tax Collector', 'Clerk Records', 'Civil Courts', 'Foreclosure Registry', 'Permits', 'Comps'].map(s => (
-          <span key={s} className="pending-tag">{s}</span>
-        ))}
-      </div>
+      <div style={{ fontSize: 11.5, color: '#9A9488' }}>Checking public records…</div>
     </div>
   )
 
@@ -230,7 +221,7 @@ export default function ReportPage() {
       </div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 20 }}>
         <button className="btn btn-gold btn-sm" onClick={() => nav('/')}>← New Search</button>
-        <button className="btn btn-outline btn-sm" onClick={() => nav('/report?q=332+NW+35th+St')}>Try Sample Address</button>
+        <button className="btn btn-outline btn-sm" onClick={() => nav('/report?q=332+NW+35th+St&sample=1')}>View Sample Report</button>
       </div>
       <div className="t-label" style={{ marginBottom: 10 }}>Sample Properties in Dataset</div>
       {['332 NW 35th St, Miami FL 33127', '1425 NE 83rd St, Miami FL 33138', '415 NE 75th St, Miami FL 33138'].map(a => (
@@ -268,7 +259,7 @@ export default function ReportPage() {
               {[
                 ['As-Is Est.', fmt.currency(p.valuation?.asIsEstimate || p.valuation?.pov)],
                 ['ARV Est.',   fmt.currency(p.valuation?.arvEstimate)],
-                ['Opp. Score', `${p.score} / 100`],
+                ['Opp. Score', p.score !== null && p.score !== undefined ? `${p.score} / 100` : '—'],
                 ['Financing',  p.financeability === 'cash-only' ? 'Cash Only' : p.financeability === 'maybe-203k' ? '203(k) Likely' : p.financeability === 'maybe' ? 'Maybe Financeable' : 'Unknown'],
               ].map(([l, v]) => (
                 <div key={l}>
@@ -309,11 +300,11 @@ export default function ReportPage() {
             <div>
               <div className="t-label" style={{ marginBottom: 6 }}>Opportunity Score</div>
               <div style={{ fontSize: 11.5, color: '#6B6456', lineHeight: 1.6 }}>
-                {p.foreclosure?.active && '• Active foreclosure\n'}
-                {p.owner?.homestead === false && '• No homestead exemption '}
-                {p.owner?.occupancy === 'absentee-owner' && '• Absentee owned '}
-                {p.tax?.delinquent && '• Tax delinquency '}
-                {p.mortgage?.freeClear && '• Appears free & clear'}
+                {p.scoreLabel && <div style={{ fontWeight: 600, color: '#1A2828', marginBottom: 2 }}>{p.scoreLabel}</div>}
+                {(p.scoreFactors || []).slice(0, 5).map((f, i) => (
+                  <div key={i}>{f.points > 0 ? '▲' : f.points < 0 ? '▼' : '•'} {f.label}</div>
+                ))}
+                {p.scoreFactors && <div style={{ fontSize: 10, color: '#9AA4A3', marginTop: 4 }}>Preliminary — tax, lien and foreclosure indicators will be added. Final opportunity depends on the seller and negotiation.</div>}
               </div>
             </div>
           </div>
@@ -330,8 +321,8 @@ export default function ReportPage() {
               </div>
             </div>
             <div style={{ fontSize: 11, color: '#9A9488', marginTop: 6, lineHeight: 1.6 }}>
-              {p.financeability === 'cash-only' && 'Active foreclosure + LLC title + final judgment blocks all agency financing at auction'}
-              {p.financeability === 'maybe-203k' && 'Open permits and code liens must be resolved. 203(k) may cover renovation costs'}
+              {p.financeability === 'cash-only' && 'Vacant land — standard FHA / conventional home loans generally do not apply'}
+              {p.financeability === 'maybe-203k' && 'Older property — condition may require a renovation loan such as FHA 203(k)'}
               {p.financeability === 'maybe' && 'Condition verification needed before lender commitment'}
               {p.financeability === 'likely' && 'No major financing obstacles detected in public records'}
             </div>
@@ -450,7 +441,7 @@ export default function ReportPage() {
                   ))}
                 </tbody>
               </table>
-              <div style={{ textAlign: 'right', marginTop: 8 }}><span className="pending-tag">⏳ Pending — {p.county || 'Miami-Dade'} Clerk Official Records</span></div>
+              <div style={{ textAlign: 'right', marginTop: 8 }}><span className="pending-tag">Coming soon</span></div>
 
               {p.owner?.type === 'LLC' && (
                 <>
@@ -458,7 +449,7 @@ export default function ReportPage() {
                   <div className="alert alert-info">
                     <div>
                       <strong>LLC-owned property.</strong> Skip trace unavailable directly. To find the human behind this entity:<br />
-                      <a href="https://search.sunbiz.org" target="_blank" rel="noreferrer" style={{ color: '#185FA5', fontWeight: 600 }}>→ Search Florida SunBiz: {p.owner.name}</a><br />
+                      <span style={{ color: '#185FA5', fontWeight: 600 }}>LLC officer &amp; registered agent lookup — coming soon</span><br />
                       <span style={{ fontSize: 11, color: '#1A3050' }}>The registered agent is the legally required public contact for any Florida LLC</span>
                     </div>
                   </div>
@@ -475,7 +466,6 @@ export default function ReportPage() {
                   <div>
                     <strong>Tax Delinquency Detected</strong> — Taxes appear delinquent for {p.tax.priorYearDelinquent ? 'current and prior year' : 'current year'}.
                     {p.tax.taxCert && ' A tax certificate is on file.'}
-                    <div style={{ marginTop: 4 }}><a href={p.tax.sourceUrl} target="_blank" rel="noreferrer" style={{ color: '#7A2A2A', fontSize: 11 }}>Verify at {p.county || 'Miami-Dade'} tax office →</a></div>
                   </div>
                 </div>
               )}
@@ -510,7 +500,7 @@ export default function ReportPage() {
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#B84040' }}>
                       Total Open Liens: {fmt.currency(p.liens.filter(l => l.status === 'open').reduce((a, b) => a + (b.amount || 0), 0))}
                     </div>
-                    <span className="pending-tag">⏳ Pending — {p.county || 'Miami-Dade'} Clerk Records</span>
+                    <span className="pending-tag">Coming soon</span>
                   </div>
                 </>
               ) : (
@@ -564,29 +554,12 @@ export default function ReportPage() {
                   <div className="t-label" style={{ marginBottom: 8 }}>Official Auction Record</div>
                   <a href={p.foreclosure.auctionUrl} target="_blank" rel="noreferrer"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#2A2A2A', color: 'rgba(200,168,75,0.9)', padding: '9px 16px', borderRadius: 5, fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>
-                    View miamidade.realforeclose.com →
+                    View official auction record →
                   </a>
                   <div style={{ fontSize: 10.5, color: '#9A9488', marginTop: 6 }}>Live auction data, opening bid, bidding registration, and case documents available at the official Miami-Dade Foreclosure Auction portal</div>
                 </div>
               )}
 
-              <div className="gold-rule"><div className="gold-rule-line" /><div className="gold-rule-text">Additional Resources</div><div className="gold-rule-line rev" /></div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {((p.county || 'Miami-Dade') === 'Miami-Dade' ? [
-                  ['Miami-Dade Foreclosure Registry', 'https://bldgappl.miamidade.gov/foreclosureregistry/default.aspx', 'Verify lis pendens book/page, registration status'],
-                  ['Miami-Dade Lis Pendens Search', 'https://onlineservices.miamidadeclerk.gov/officialrecords', 'Search recorded lis pendens in Clerk Official Records'],
-                  ['Civil Court Case Search', 'https://www.miamidadeclerk.gov/clerk/civil-court.page', 'Full foreclosure case docket, judge, status updates'],
-                ] : [
-                  [`${p.county} Clerk of Courts`, p.links?.clerk, 'Official records, lis pendens and foreclosure case search'],
-                  [`${p.county} Property Appraiser`, p.links?.appraiser, 'Ownership, exemptions and building details'],
-                  [`${p.county} Tax Office`, p.links?.tax, 'Current and delinquent property taxes'],
-                ]).filter(([, url]) => url).map(([name, url, desc]) => (
-                  <div key={name} style={{ background: '#F4F0E8', border: '1px solid #DDD8CC', borderRadius: 5, padding: '10px 13px' }}>
-                    <a href={url} target="_blank" rel="noreferrer" style={{ fontSize: 13, fontWeight: 500, color: '#A88C38' }}>{name} →</a>
-                    <div style={{ fontSize: 11, color: '#9A9488', marginTop: 2 }}>{desc}</div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 
@@ -646,7 +619,7 @@ export default function ReportPage() {
                 </>
               )}
 
-              <div style={{ marginTop: 12, textAlign: 'right' }}><span className="pending-tag">⏳ Pending — City of Miami Permits / Miami-Dade Building Dept</span></div>
+              <div style={{ marginTop: 12, textAlign: 'right' }}><span className="pending-tag">Coming soon</span></div>
             </div>
           )}
 
@@ -654,7 +627,7 @@ export default function ReportPage() {
           {tab === 'Valuation' && (
             <div>
               <div className="alert alert-gold" style={{ marginBottom: 14 }}>
-                All valuations are estimates — <strong>not an appraisal</strong>. Confidence: {p.valuation?.confidence}%. Source: {p.valuation?.source || 'MLS comps pending integration'}
+                All valuations are estimates — <strong>not an appraisal</strong>. Current figure is the county assessed value, not a market estimate.
               </div>
 
               <div className="grid-3" style={{ marginBottom: 16 }}>
@@ -685,7 +658,7 @@ export default function ReportPage() {
                   </div>
                 </div>
               ))}
-              <div style={{ marginTop: 8, textAlign: 'right' }}><span className="pending-tag">⏳ Live comps pending — MLS / iMapp authorization required</span></div>
+              <div style={{ marginTop: 8, textAlign: 'right' }}><span className="pending-tag">Comparable sales — coming soon</span></div>
             </div>
           )}
 
@@ -710,39 +683,8 @@ export default function ReportPage() {
             </div>
           )}
 
-          {/* ── SOURCES ──────────────────────────────────────────────────── */}
-          {tab === 'Sources' && (
-            <div>
-              <div style={{ fontSize: 12.5, color: '#9A9488', marginBottom: 14 }}>
-                Each source below is configured independently. Sources marked "Pending" use sample data until live API credentials are configured on the backend. No credentials are stored in the frontend.
-              </div>
-              <table className="data-table">
-                <thead><tr><th>Source</th><th>Data Fields</th><th>Last Checked</th><th>Confidence</th><th>Status</th></tr></thead>
-                <tbody>
-                  {(p.dataSources || []).map((s, i) => (
-                    <tr key={i}>
-                      <td style={{ fontWeight: 600 }}>{s.name}</td>
-                      <td style={{ fontSize: 11, color: '#9A9488' }}>—</td>
-                      <td style={{ fontSize: 11 }}>{s.lastChecked || '—'}</td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div style={{ width: 60, height: 3, background: '#EDE8DC', borderRadius: 2, overflow: 'hidden' }}>
-                            <div style={{ width: s.confidence + '%', height: '100%', background: '#C8A84B', borderRadius: 2 }} />
-                          </div>
-                          <span style={{ fontSize: 10.5 }}>{s.confidence}%</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`badge badge-${s.status === 'live-link' || s.status === 'manual-import' ? 'green' : s.status === 'auth-required' ? 'blue' : 'gold'}`}>
-                          {s.status === 'pending-integration' ? 'Pending' : s.status === 'live-link' ? 'Live Link' : s.status === 'auth-required' ? 'Auth Required' : 'Manual'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {/* ── INVESTMENT ──────────────────────────────────────────────── */}
+          {tab === 'Investment' && <InvestmentCalculator property={p} />}
 
         </div>
       </div>

@@ -178,7 +178,7 @@ export default function CriteriaSearch() {
               <input type="checkbox" checked={f.recentSale} onChange={e => set('recentSale', e.target.checked)} /> Sold in the last 1–2 years
             </label>
             <Range label="Recent sale price $" lo="minSale" hi="maxSale" set={set} f={f} />
-            <div style={S.hint}>The state tax roll only lists sales from the last 1–2 years. Older sale dates and "owned for X years" need full deed history from the county clerks (on the outreach list).</div>
+            <div style={S.hint}>Sale filters cover sales from the last 1–2 years. Full sale history is coming soon.</div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#A8B4B3', marginTop: 8 }}>
               <input type="checkbox" disabled /> Owned 10+ years <span className="badge badge-gold" style={{ marginLeft: 'auto', fontSize: 8.5 }}>Soon</span>
             </label>
@@ -210,7 +210,7 @@ export default function CriteriaSearch() {
                 <input type="checkbox" disabled /> {l} <span className="badge badge-gold" style={{ marginLeft: 'auto', fontSize: 8.5 }}>Soon</span>
               </label>
             ))}
-            <div style={S.hint}>These turn on as county tax, clerk and permit sources are connected.</div>
+            <div style={S.hint}>Coming soon.</div>
           </div>
 
           <div style={{ ...S.group, display: 'flex', gap: 6 }}>
@@ -254,16 +254,17 @@ export default function CriteriaSearch() {
                 </div>
               </div>
               <div style={{ overflowX: 'auto' }}>
-                <table className="data-table" style={{ minWidth: 980 }}>
+                <table className="data-table" style={{ minWidth: 1040 }}>
                   <thead>
                     <tr>
-                      <th>Address</th><th>Type</th><th>Bd/Ba</th><th>Living</th><th>Lot</th><th>Built</th>
+                      <th>Score</th><th>Address</th><th>Type</th><th>Bd/Ba</th><th>Living</th><th>Lot</th><th>Built</th>
                       <th>Value</th><th>Last Sale</th><th>Owner</th><th>Indicators</th>
                     </tr>
                   </thead>
                   <tbody>
                     {res.results.map(r => (
                       <tr key={`${r.countySlug}-${r.parcelId}`} style={{ cursor: 'pointer' }} onClick={() => nav(`/report?q=${encodeURIComponent(r.reportKey)}`)}>
+                        <td><span title={r.scoreLabel} style={{ display: 'inline-block', minWidth: 34, textAlign: 'center', padding: '3px 6px', borderRadius: 4, fontWeight: 700, fontSize: 12, background: r.score >= 76 ? '#F5E8E8' : r.score >= 51 ? '#F5EDD8' : '#F0EDE4', color: r.score >= 76 ? '#B84040' : r.score >= 51 ? '#A8863E' : '#7A8A89' }}>{r.score ?? '—'}</span></td>
                         <td>
                           <div style={{ fontWeight: 600, color: '#1A2828' }}>{r.address || '(no site address)'}</div>
                           <div style={{ fontSize: 10.5, color: '#9A9488' }}>{r.city} {r.zip} · {r.county}</div>
@@ -288,13 +289,13 @@ export default function CriteriaSearch() {
                       </tr>
                     ))}
                     {!res.results.length && (
-                      <tr><td colSpan={10} style={{ textAlign: 'center', padding: 30, color: '#9A9488' }}>No properties match. Try widening a filter.</td></tr>
+                      <tr><td colSpan={11} style={{ textAlign: 'center', padding: 30, color: '#9A9488' }}>No properties match. Try widening a filter.</td></tr>
                     )}
                   </tbody>
                 </table>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderTop: '1px solid #EDE8DC', flexWrap: 'wrap', gap: 8 }}>
-                <div style={{ fontSize: 10, color: '#9AA4A3', maxWidth: 520 }}>Source: {res.source}. Values are assessed values, not appraisals.</div>
+                <div style={{ fontSize: 10, color: '#9AA4A3', maxWidth: 520 }}>Compiled from public records. Values are county assessed values, not appraisals. Scores are preliminary indicators.</div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <button className="btn btn-outline btn-sm" disabled={page <= 1 || loading} onClick={() => run(page - 1)}>← Prev</button>
                   <span style={{ fontSize: 11 }}>Page {page} of {totalPages}</span>

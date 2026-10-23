@@ -30,8 +30,12 @@ async function startSession(req, userId) {
   return sid
 }
 
+const adminEmails = () => String(process.env.ADMIN_EMAILS || 'natibalma@gmail.com').toLowerCase().split(',').map(s => s.trim()).filter(Boolean)
+const isAdmin = (email) => adminEmails().includes(String(email || '').toLowerCase())
+
 const publicUser = (user) => ({
   id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name, role: user.role, plan: user.plan,
+  isAdmin: isAdmin(user.email),
 })
 
 /* POST /api/auth/register */
@@ -174,7 +178,7 @@ router.get('/me', requireAuth, async (req, res) => {
     )
     if (!r.rows.length) return res.status(404).json({ error: 'User not found' })
     const u = r.rows[0]
-    res.json({ id: u.id, email: u.email, firstName: u.first_name, lastName: u.last_name, phone: u.phone, role: u.role, plan: u.plan, emailVerified: u.email_verified })
+    res.json({ id: u.id, email: u.email, firstName: u.first_name, lastName: u.last_name, phone: u.phone, role: u.role, plan: u.plan, emailVerified: u.email_verified, isAdmin: isAdmin(u.email) })
   } catch (e) {
     res.status(500).json({ error: 'Failed to fetch user' })
   }
@@ -237,3 +241,4 @@ router.post('/resend-code', requireAuth, async (req, res) => {
 })
 
 module.exports = router
+module.exports.isAdmin = isAdmin
