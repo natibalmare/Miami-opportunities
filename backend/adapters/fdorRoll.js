@@ -125,7 +125,7 @@ function mapRow(r, countyNo, rollType, importId) {
 const COLS = [
   ['county_no', 'smallint'], ['parcel_id', 'text'], ['phy_addr1', 'text'], ['phy_city', 'text'], ['phy_zip', 'text'],
   ['own_name', 'text'], ['own_addr1', 'text'], ['own_city', 'text'], ['own_state', 'text'], ['own_zip', 'text'],
-  ['dor_uc', 'smallint'], ['just_value', 'bigint'], ['land_sqft', 'integer'], ['living_sqft', 'integer'],
+  ['dor_uc', 'smallint'], ['just_value', 'bigint'], ['land_sqft', 'bigint'], ['living_sqft', 'bigint'],
   ['year_built', 'smallint'], ['eff_year_built', 'smallint'], ['res_units', 'integer'], ['buildings', 'integer'],
   ['homestead', 'boolean'], ['absentee', 'boolean'], ['sale_price1', 'bigint'], ['sale_date1', 'date'],
   ['sale_qual1', 'text'], ['sale_price2', 'bigint'], ['sale_date2', 'date'], ['roll_year', 'smallint'],

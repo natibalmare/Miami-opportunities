@@ -8,6 +8,18 @@ const { findLatestFile, importCounty } = require('../adapters/fdorRoll')
 const { enrichMiamiDade } = require('../adapters/mdpaEnrich')
 
 const LOCK_KEY = 778899
+/* Railway Hobby volumes max out at 5 GB — stop loading well before the disk fills */
+const MAX_DB_BYTES = Number(process.env.DATA_MAX_DB_MB || 3800) * 1024 * 1024
+
+async function dbTooBig() {
+  const r = await query('SELECT pg_database_size(current_database())::bigint AS bytes')
+  const bytes = Number(r.rows[0].bytes)
+  if (bytes > MAX_DB_BYTES) {
+    console.error(`[data] database is ${(bytes / 1048576).toFixed(0)} MB — over the ${(MAX_DB_BYTES / 1048576).toFixed(0)} MB safety limit, skipping county loads`)
+    return true
+  }
+  return false
+}
 const DAY = 24 * 60 * 60 * 1000
 let running = false
 
@@ -41,6 +53,7 @@ async function runOnce() {
           (file.modified && new Date(file.modified) > new Date(done.file_modified || 0))
 
         if (isNew) {
+          if (await dbTooBig()) break
           await importCounty(county, file)
         } else {
           console.log(`[data] ${county.name}: up to date (${file.name})`)
@@ -51,7 +64,7 @@ async function runOnce() {
           const enrich = await lastDone(23, 'mdpa-enrich')
           const stale = !enrich || (roll && new Date(enrich.finished_at) < new Date(roll.finished_at)) ||
             Date.now() - new Date(enrich.finished_at).getTime() > 30 * DAY
-          if (roll && stale) await enrichMiamiDade()
+          if (roll && stale && !(await dbTooBig())) await enrichMiamiDade()
         }
       } catch (e) {
         console.error(`[data] ${county.name}: refresh error —`, e.message)

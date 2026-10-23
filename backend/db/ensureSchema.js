@@ -49,6 +49,9 @@ async function ensureSchema() {
        updated_at     TIMESTAMPTZ DEFAULT NOW(),
        PRIMARY KEY (county_no, parcel_id)
      )`,
+    // Very large parcels (e.g. agricultural land) exceed the normal integer range
+    `ALTER TABLE parcels ALTER COLUMN land_sqft TYPE BIGINT`,
+    `ALTER TABLE parcels ALTER COLUMN living_sqft TYPE BIGINT`,
     `CREATE INDEX IF NOT EXISTS idx_parcels_zip ON parcels (county_no, phy_zip)`,
     `CREATE INDEX IF NOT EXISTS idx_parcels_city ON parcels (county_no, phy_city)`,
     `CREATE INDEX IF NOT EXISTS idx_parcels_use ON parcels (county_no, dor_uc)`,
