@@ -13,6 +13,20 @@ function detectType(q) {
   return 'owner'
 }
 
+/* GET /api/search/suggest?q=332 NW — real Miami-Dade addresses as you type */
+router.get('/suggest', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim()
+    if (q.length < 3 || q.length > 80) return res.json({ suggestions: [] })
+    const items = await mdpa.suggestAddresses(q)
+    if (items === null) return res.status(502).json({ suggestions: [], error: 'County records are not responding' })
+    res.json({ suggestions: items, source: 'Miami-Dade Property Appraiser (live)' })
+  } catch (e) {
+    console.error('Suggest failed:', e.message)
+    res.status(500).json({ suggestions: [] })
+  }
+})
+
 router.get('/', optionalAuth, async (req, res) => {
   try {
     const { q } = req.query

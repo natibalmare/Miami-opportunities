@@ -19,6 +19,8 @@ const sourcesRoutes   = require('./routes/sources')
 const { ensureSchema } = require('./db/ensureSchema')
 
 const app = express()
+/* Railway sits in front of the app — use the visitor's real IP for rate limits */
+app.set('trust proxy', 1)
 
 /* ── SECURITY ──────────────────────────────────────────────────────────────── */
 app.use(helmet({ contentSecurityPolicy: false }))
@@ -37,7 +39,14 @@ app.use(cors({
   },
   credentials: true
 }))
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 150, message: { error: 'Rate limit exceeded. Please wait.' } }))
+/* Address suggestions fire while typing, so they get their own, larger allowance */
+app.use('/api/search/suggest', rateLimit({ windowMs: 15 * 60 * 1000, max: 600, message: { suggestions: [], error: 'Too many requests. Please wait.' } }))
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 150,
+  skip: (req) => req.path.startsWith('/api/search/suggest'),
+  message: { error: 'Rate limit exceeded. Please wait.' }
+}))
 
 /* ── BODY PARSING ──────────────────────────────────────────────────────────── */
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }))

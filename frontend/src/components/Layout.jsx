@@ -2,6 +2,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from '../utils/AuthContext.jsx'
 import AuthModal from './AuthModal'
+import AddressSearchInput from './AddressSearchInput'
 
 const NAV = [
   { path: '/',        label: 'Search',              section: 'Research' },
@@ -135,7 +136,14 @@ export default function Layout() {
         {loc.pathname !== '/' && (
           <header style={S.topbar}>
             <form style={S.searchWrap} onSubmit={handleTopSearch}>
-              <input style={S.topInp} value={topQ} onChange={e => setTopQ(e.target.value)} placeholder="Search address, owner, LLC, folio, neighborhood, ZIP…" />
+              <AddressSearchInput
+                inputStyle={{ ...S.topInp, height: '100%' }}
+                value={topQ}
+                onChange={setTopQ}
+                onSubmit={() => { if (topQ.trim()) navigate(`/report?q=${encodeURIComponent(topQ.trim())}`) }}
+                onPick={s => { setTopQ(s.label); navigate(`/report?q=${encodeURIComponent(s.folio)}`) }}
+                placeholder="Search address, owner, LLC, folio, neighborhood, ZIP…"
+              />
               <button type="submit" style={S.topBtn}>Search →</button>
             </form>
             <div style={S.topR}>

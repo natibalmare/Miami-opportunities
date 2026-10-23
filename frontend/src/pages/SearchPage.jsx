@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AuthModal from '../components/AuthModal'
+import AddressSearchInput from '../components/AddressSearchInput'
 
 const RECENT = [
   { q: '332 NW 35th St, Miami FL 33127', type: 'Address' },
@@ -36,13 +37,14 @@ export default function SearchPage() {
 
       {/* SEARCH */}
       <div style={{ background: '#FAF8F2', border: '1px solid #D8D4C8', borderRadius: 10, padding: 20, boxShadow: '0 2px 12px rgba(10,61,58,0.06)' }}>
-        <div style={{ display: 'flex', border: '1.5px solid #0A3D3A', borderRadius: 4, marginBottom: 12, overflow: 'hidden' }}>
-          <input
-            style={{ flex: 1, border: 'none', padding: '13px 16px', fontSize: 14, color: '#1A2828', outline: 'none', background: '#FAF8F2', fontFamily: 'inherit' }}
+        <div style={{ display: 'flex', border: '1.5px solid #0A3D3A', borderRadius: 4, marginBottom: 12 }}>
+          <AddressSearchInput
+            inputStyle={{ border: 'none', padding: '13px 16px', fontSize: 14, color: '#1A2828', outline: 'none', background: '#FAF8F2', fontFamily: 'inherit' }}
             placeholder="Search any address, owner name, LLC, folio, neighborhood, or ZIP…"
             value={q}
-            onChange={e => setQ(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && doSearch()}
+            onChange={setQ}
+            onSubmit={() => doSearch()}
+            onPick={s => { setQ(s.label); nav(`/report?q=${encodeURIComponent(s.folio)}`) }}
           />
           <button
             onClick={() => doSearch()}
