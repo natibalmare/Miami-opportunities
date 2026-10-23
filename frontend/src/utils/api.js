@@ -38,6 +38,8 @@ export const api = {
   search: (q, type = 'address') =>
     req(`/api/search?q=${encodeURIComponent(q)}&type=${type}`),
 
+  getCriteriaMeta: () => req('/api/criteria/meta'),
+  criteriaSearch: (params) => req(`/api/criteria?${new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v !== null && v !== undefined))}`),
   suggestAddresses: (q) => req(`/api/search/suggest?q=${encodeURIComponent(q)}`),
 
   getReport: (folio) => req(`/api/property/${folio}`),

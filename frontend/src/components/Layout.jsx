@@ -6,6 +6,7 @@ import AddressSearchInput from './AddressSearchInput'
 
 const NAV = [
   { path: '/',        label: 'Search',              section: 'Research' },
+  { path: '/criteria', label: 'Criteria Search',    section: null },
   { path: '/report',  label: 'Property Report',     section: null },
   { path: '/leads',   label: 'Lead Dashboard',      section: null },
   { path: '/map',     label: 'Map View',            section: null },

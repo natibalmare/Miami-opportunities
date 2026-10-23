@@ -16,7 +16,9 @@ const paymentsRoutes  = require('./routes/payments')
 const leadsRoutes     = require('./routes/leads')
 const boardRoutes     = require('./routes/board')
 const sourcesRoutes   = require('./routes/sources')
+const criteriaRoutes  = require('./routes/criteria')
 const { ensureSchema } = require('./db/ensureSchema')
+const { startDataRefresh } = require('./jobs/dataRefresh')
 
 const app = express()
 /* Railway sits in front of the app — use the visitor's real IP for rate limits */
@@ -58,6 +60,7 @@ if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'))
 /* ── ROUTES ────────────────────────────────────────────────────────────────── */
 app.use('/api/auth',        authRoutes)
 app.use('/api/search',      searchRoutes)
+app.use('/api/criteria',    criteriaRoutes)
 app.use('/api/property',    propertyRoutes)
 app.use('/api/foreclosure', foreclosureRoutes)
 app.use('/api/permits',     permitsRoutes)
@@ -81,4 +84,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 4000
 ensureSchema()
   .catch(e => console.error('Schema check error:', e.message))
-  .finally(() => app.listen(PORT, () => console.log(`MO Miami backend v2.0 running on :${PORT}`)))
+  .finally(() => {
+    app.listen(PORT, () => console.log(`MO Miami backend v2.0 running on :${PORT}`))
+    startDataRefresh()
+  })

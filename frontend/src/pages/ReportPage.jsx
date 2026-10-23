@@ -5,13 +5,26 @@ import { api } from '../utils/api'
 
 function mapMdpaToProperty(r) {
   if (!r) return null
+  const county = r.county || 'Miami-Dade'
+  const isMD = county === 'Miami-Dade'
+  const links = r.links || {
+    appraiser: 'https://www.miamidade.gov/Apps/PA/propertysearch/',
+    tax: 'https://miamidade.county-taxes.com',
+    clerk: 'https://www.miamidadeclerk.gov',
+    foreclosure: 'https://www.miamidade.realforeclose.com',
+  }
   const owner1 = r.owner1 || 'Unknown'
   const mailing = [r.mailingAddr, r.mailingCity, r.mailingState, r.mailingZip].filter(Boolean).join(', ')
-  const matchesProp = !!(r.mailingAddr && r.address && r.mailingAddr.toUpperCase().includes(r.address.toUpperCase().split(' ').slice(0, 2).join(' ')))
+  const matchesProp = typeof r.absentee === 'boolean'
+    ? !r.absentee
+    : !!(r.mailingAddr && r.address && r.mailingAddr.toUpperCase().includes(r.address.toUpperCase().split(' ').slice(0, 2).join(' ')))
+  const occupancy = r.homestead === true ? 'owner-occupied' : r.absentee === true ? 'absentee-owner' : 'unknown'
+  const sourceName = isMD && !r.lastSaleDate ? 'Miami-Dade PA' : `${county} — FL Dept. of Revenue tax roll`
   return {
     folio: r.folio,
+    county,
     address: r.address,
-    city: r.city || 'Miami',
+    city: r.city || (isMD ? 'Miami' : county),
     state: 'FL',
     zip: r.zip,
     neighborhood: r.subdivision || 'N/A',
@@ -26,21 +39,21 @@ function mapMdpaToProperty(r) {
     financeability: null,
     owner: {
       name: owner1,
-      type: /LLC|INC|CORP|LTD/i.test(owner1) ? 'LLC' : 'Individual',
+      type: /LLC|INC|CORP|LTD/i.test(owner1) ? 'LLC' : /TRUST|\bTR\b|ESTATE/i.test(owner1) ? 'Trust' : 'Individual',
       mailing: mailing || 'N/A',
       matchesProp,
-      homestead: null,
-      occupancy: 'unknown',
+      homestead: typeof r.homestead === 'boolean' ? r.homestead : null,
+      occupancy,
     },
     tax: {
       assessedValue: r.assessedValue,
       annualTax: null,
       status: 'verify',
       delinquent: null,
-      sourceUrl: 'https://miamidade.county-taxes.com',
+      sourceUrl: links.tax,
     },
     mortgage: { freeClear: null },
-    deeds: [],
+    deeds: r.lastSaleDate ? [{ date: `${String(r.lastSaleDate).slice(0, 10)}T12:00:00`, type: 'Last recorded sale', grantor: '—', grantee: owner1, amount: r.lastSalePrice, instrNo: null }] : [],
     liens: [],
     foreclosure: { lispendens: false, active: false, urgency: 'low' },
     permits: [],
@@ -48,20 +61,21 @@ function mapMdpaToProperty(r) {
     valuation: {
       asIsEstimate: r.assessedValue,
       confidence: 30,
-      source: 'Miami-Dade Property Appraiser assessed value (not a market estimate)',
+      source: `${county} assessed/just value (not a market estimate)`,
     },
     comps: [],
     nextSteps: [
-      'Verify tax status directly with Miami-Dade Tax Collector',
-      'Search Miami-Dade Clerk Official Records for mortgages and liens',
+      `Verify tax status directly with the ${county} tax office`,
+      `Search ${county} Clerk Official Records for mortgages and liens`,
       'Check City/County permit history before making an offer',
-      'Confirm foreclosure status at miamidade.realforeclose.com',
+      `Confirm foreclosure status with the ${county} Clerk`,
     ],
-    strategy: 'Live parcel data pulled directly from the Miami-Dade Property Appraiser. Tax, lien, permit, foreclosure, and comp data are still pending integration — verify manually before making an offer.',
+    links,
+    strategy: `Parcel data from ${isMD && !r.lastSaleDate ? 'the Miami-Dade Property Appraiser (live)' : `the Florida Department of Revenue ${county} tax roll`}. Tax, lien, permit, foreclosure, and comp data are still pending integration — verify manually before making an offer.`,
     dataSources: [
-      { name: 'Miami-Dade PA', status: 'live-link', lastChecked: r.fetchedAt, confidence: 90 },
-      { name: 'Tax Collector', status: 'pending-integration', lastChecked: null, confidence: 0 },
-      { name: 'Clerk Records', status: 'pending-integration', lastChecked: null, confidence: 0 },
+      { name: sourceName, status: 'live-link', lastChecked: r.fetchedAt, confidence: 90 },
+      { name: `${county} Tax Collector`, status: 'pending-integration', lastChecked: null, confidence: 0 },
+      { name: `${county} Clerk Records`, status: 'pending-integration', lastChecked: null, confidence: 0 },
       { name: 'City Permits', status: 'pending-integration', lastChecked: null, confidence: 0 },
       { name: 'MLS / iMapp', status: 'auth-required', lastChecked: null, confidence: 0 },
     ],
@@ -202,12 +216,12 @@ export default function ReportPage() {
       <div style={{ fontSize: 20, fontWeight: 300, marginBottom: 8 }}>No Records Found</div>
       <div style={{ fontSize: 14, color: '#A88C38', fontWeight: 500, marginBottom: 12 }}>"{q}"</div>
       <div style={{ fontSize: 12.5, color: '#9A9488', lineHeight: 1.7, marginBottom: 24 }}>
-        This address was not found in the current demo dataset. The live platform connects to Miami-Dade County records in real time.
+        This address was not found in Miami-Dade, Broward or Palm Beach County records.
       </div>
       <div className="card" style={{ textAlign: 'left', marginBottom: 16 }}>
         <div className="card-body">
           <div className="t-label" style={{ marginBottom: 10 }}>Possible Reasons</div>
-          {['Address not found in Miami-Dade County records', 'Property may be in Broward County — requires separate integration', 'Try the folio number (01-XXXX-XXX-XXXX) for exact match', 'Search by owner name or LLC name instead'].map((t, i) => (
+          {['Pick the address from the suggestions while typing', 'Check the street number and direction (NE, NW, SE, SW)', 'Try the folio / parcel number for an exact match', 'Use Criteria Search to find it by ZIP, street or owner'].map((t, i) => (
             <div key={i} style={{ display: 'flex', gap: 8, padding: '5px 0', borderBottom: '1px solid #EDE8DC', fontSize: 12 }}>
               <span style={{ color: '#C8A84B', flexShrink: 0 }}>◦</span>{t}
             </div>
@@ -436,7 +450,7 @@ export default function ReportPage() {
                   ))}
                 </tbody>
               </table>
-              <div style={{ textAlign: 'right', marginTop: 8 }}><span className="pending-tag">⏳ Pending — Miami-Dade Clerk Official Records</span></div>
+              <div style={{ textAlign: 'right', marginTop: 8 }}><span className="pending-tag">⏳ Pending — {p.county || 'Miami-Dade'} Clerk Official Records</span></div>
 
               {p.owner?.type === 'LLC' && (
                 <>
@@ -461,7 +475,7 @@ export default function ReportPage() {
                   <div>
                     <strong>Tax Delinquency Detected</strong> — Taxes appear delinquent for {p.tax.priorYearDelinquent ? 'current and prior year' : 'current year'}.
                     {p.tax.taxCert && ' A tax certificate is on file.'}
-                    <div style={{ marginTop: 4 }}><a href={p.tax.sourceUrl} target="_blank" rel="noreferrer" style={{ color: '#7A2A2A', fontSize: 11 }}>Verify at Miami-Dade Tax Collector →</a></div>
+                    <div style={{ marginTop: 4 }}><a href={p.tax.sourceUrl} target="_blank" rel="noreferrer" style={{ color: '#7A2A2A', fontSize: 11 }}>Verify at {p.county || 'Miami-Dade'} tax office →</a></div>
                   </div>
                 </div>
               )}
@@ -496,7 +510,7 @@ export default function ReportPage() {
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#B84040' }}>
                       Total Open Liens: {fmt.currency(p.liens.filter(l => l.status === 'open').reduce((a, b) => a + (b.amount || 0), 0))}
                     </div>
-                    <span className="pending-tag">⏳ Pending — Miami-Dade Clerk Records</span>
+                    <span className="pending-tag">⏳ Pending — {p.county || 'Miami-Dade'} Clerk Records</span>
                   </div>
                 </>
               ) : (
@@ -558,11 +572,15 @@ export default function ReportPage() {
 
               <div className="gold-rule"><div className="gold-rule-line" /><div className="gold-rule-text">Additional Resources</div><div className="gold-rule-line rev" /></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {[
+                {((p.county || 'Miami-Dade') === 'Miami-Dade' ? [
                   ['Miami-Dade Foreclosure Registry', 'https://bldgappl.miamidade.gov/foreclosureregistry/default.aspx', 'Verify lis pendens book/page, registration status'],
                   ['Miami-Dade Lis Pendens Search', 'https://onlineservices.miamidadeclerk.gov/officialrecords', 'Search recorded lis pendens in Clerk Official Records'],
                   ['Civil Court Case Search', 'https://www.miamidadeclerk.gov/clerk/civil-court.page', 'Full foreclosure case docket, judge, status updates'],
-                ].map(([name, url, desc]) => (
+                ] : [
+                  [`${p.county} Clerk of Courts`, p.links?.clerk, 'Official records, lis pendens and foreclosure case search'],
+                  [`${p.county} Property Appraiser`, p.links?.appraiser, 'Ownership, exemptions and building details'],
+                  [`${p.county} Tax Office`, p.links?.tax, 'Current and delinquent property taxes'],
+                ]).filter(([, url]) => url).map(([name, url, desc]) => (
                   <div key={name} style={{ background: '#F4F0E8', border: '1px solid #DDD8CC', borderRadius: 5, padding: '10px 13px' }}>
                     <a href={url} target="_blank" rel="noreferrer" style={{ fontSize: 13, fontWeight: 500, color: '#A88C38' }}>{name} →</a>
                     <div style={{ fontSize: 11, color: '#9A9488', marginTop: 2 }}>{desc}</div>

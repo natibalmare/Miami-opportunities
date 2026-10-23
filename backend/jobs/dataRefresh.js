@@ -1,0 +1,74 @@
+// backend/jobs/dataRefresh.js
+// Keeps county property data current: checks the state tax roll daily and reloads a
+// county only when a newer file is published. Runs inside the backend on Railway.
+
+const { pool, query } = require('../db/pool')
+const { COUNTIES } = require('../config/counties')
+const { findLatestFile, importCounty } = require('../adapters/fdorRoll')
+const { enrichMiamiDade } = require('../adapters/mdpaEnrich')
+
+const LOCK_KEY = 778899
+const DAY = 24 * 60 * 60 * 1000
+let running = false
+
+async function lastDone(countyNo, source) {
+  const r = await query(
+    `SELECT * FROM data_imports WHERE county_no=$1 AND source=$2 AND status='done' ORDER BY finished_at DESC LIMIT 1`,
+    [countyNo, source]
+  )
+  return r.rows[0] || null
+}
+
+async function runOnce() {
+  if (running) return
+  running = true
+  const lockClient = await pool.connect()
+  try {
+    const got = await lockClient.query('SELECT pg_try_advisory_lock($1) AS ok', [LOCK_KEY])
+    if (!got.rows[0].ok) { console.log('[data] another refresh is running — skipping'); return }
+
+    /* A load interrupted by a restart is marked failed so it is retried */
+    await query(`UPDATE data_imports SET status='failed', error='Interrupted', finished_at=NOW()
+                 WHERE status='running' AND started_at < NOW() - INTERVAL '3 hours'`)
+
+    for (const county of Object.values(COUNTIES)) {
+      try {
+        const file = await findLatestFile(county)
+        if (!file) { console.log(`[data] ${county.name}: no state roll file found`); continue }
+
+        const done = await lastDone(county.no, 'fdor-nal')
+        const isNew = !done || done.file_name !== file.name ||
+          (file.modified && new Date(file.modified) > new Date(done.file_modified || 0))
+
+        if (isNew) {
+          await importCounty(county, file)
+        } else {
+          console.log(`[data] ${county.name}: up to date (${file.name})`)
+        }
+
+        if (county.hasBedsBaths && county.no === 23) {
+          const roll = await lastDone(23, 'fdor-nal')
+          const enrich = await lastDone(23, 'mdpa-enrich')
+          const stale = !enrich || (roll && new Date(enrich.finished_at) < new Date(roll.finished_at)) ||
+            Date.now() - new Date(enrich.finished_at).getTime() > 30 * DAY
+          if (roll && stale) await enrichMiamiDade()
+        }
+      } catch (e) {
+        console.error(`[data] ${county.name}: refresh error —`, e.message)
+      }
+    }
+  } finally {
+    await lockClient.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {})
+    lockClient.release()
+    running = false
+  }
+}
+
+function startDataRefresh() {
+  const enabled = process.env.DATA_REFRESH ? process.env.DATA_REFRESH !== 'off' : process.env.NODE_ENV === 'production'
+  if (!enabled) { console.log('[data] automatic county refresh is off'); return }
+  setTimeout(() => runOnce().catch(e => console.error('[data] refresh failed —', e.message)), 60 * 1000)
+  setInterval(() => runOnce().catch(e => console.error('[data] refresh failed —', e.message)), DAY)
+}
+
+module.exports = { startDataRefresh, runOnce }
