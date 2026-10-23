@@ -1,17 +1,17 @@
 const router = require('express').Router()
 const { query } = require('../db/pool')
-const { optionalAuth, requireAuth } = require('../middleware/auth')
+const { optionalAuth } = require('../middleware/auth')
+const { PLANS, SINGLE_REPORT } = require('./payments')
 
-/* Check if user has access to a full report */
+const normFolio = (f) => String(f || '').replace(/\D/g, '')
+
+/* A report is unlocked when the user has a completed purchase for this folio:
+   single report ($15), a membership report, or an extra (overage) report. */
 async function hasAccess(userId, folio) {
   if (!userId) return false
-  /* Check membership plan */
-  const u = await query('SELECT plan FROM users WHERE id = $1', [userId])
-  if (u.rows[0]?.plan === 'gold') return true
-  /* Check individual purchase */
   const p = await query(
-    `SELECT id FROM report_purchases WHERE user_id=$1 AND folio=$2 AND status='completed'`,
-    [userId, folio]
+    `SELECT id FROM report_purchases WHERE user_id=$1 AND folio=$2 AND status='completed' LIMIT 1`,
+    [userId, normFolio(folio)]
   )
   return p.rows.length > 0
 }
@@ -33,69 +33,69 @@ async function buildReport(folio) {
   ])
 
   return {
-    property:   prop.rows[0] || null,
-    owner:      owner.rows[0] || null,
-    tax:        tax.rows[0] || null,
-    mortgages:  mortgage.rows,
-    deeds:      deeds.rows,
-    liens:      liens.rows,
+    property:    prop.rows[0] || null,
+    owner:       owner.rows[0] || null,
+    tax:         tax.rows[0] || null,
+    mortgages:   mortgage.rows,
+    deeds:       deeds.rows,
+    liens:       liens.rows,
     foreclosure: foreclosure.rows[0] || null,
-    permits:    permits.rows,
-    violations: violations.rows,
-    comps:      comps.rows,
-    valuation:  valuation.rows[0] || null,
-    score:      score.rows[0] || null,
+    permits:     permits.rows,
+    violations:  violations.rows,
+    comps:       comps.rows,
+    valuation:   valuation.rows[0] || null,
+    score:       score.rows[0] || null,
   }
+}
+
+function pricing() {
+  const out = { report: SINGLE_REPORT.amount }
+  for (const [id, p] of Object.entries(PLANS)) {
+    out[id] = { monthly: p.amounts.month, annual: p.amounts.year, reports: p.reports, overage: p.overage }
+  }
+  return out
 }
 
 /* GET /api/property/:folio — full or free tier based on access */
 router.get('/:folio', optionalAuth, async (req, res) => {
   try {
     const { folio } = req.params
-    const paid = await hasAccess(req.user?.id, folio)
-    const report = await buildReport(folio)
+    const [paid, report] = await Promise.all([hasAccess(req.user?.id, folio), buildReport(folio)])
 
     if (!report.property) return res.status(404).json({ error: 'Property not found' })
 
     if (!paid) {
-      let credits = 0
-      if (req.user?.id) {
-        const c = await query('SELECT credits FROM users WHERE id=$1', [req.user.id])
-        credits = c.rows[0]?.credits ?? 0
-      }
-
-      /* Free tier — redact sensitive fields */
+      /* Free tier — sensitive fields stay locked */
       return res.json({
         access: 'free',
         folio,
-        credits,
-        property:    report.property,
+        property: report.property,
         owner: report.owner ? {
-          name:       report.owner.name,
-          owner_type: report.owner.owner_type,
-          homestead:  report.owner.homestead,
-          occupancy:  report.owner.occupancy,
-          mailing_address: '🔒 Unlock full report',
-          matches_prop: report.owner.matches_prop,
+          name:            report.owner.name,
+          owner_type:      report.owner.owner_type,
+          homestead:       report.owner.homestead,
+          occupancy:       report.owner.occupancy,
+          mailing_address: 'Locked — unlock full report',
+          matches_prop:    report.owner.matches_prop,
         } : null,
         tax: report.tax ? {
-          tax_year:     report.tax.tax_year,
-          annual_tax:   report.tax.annual_tax,
-          tax_status:   report.tax.tax_status,
-          delinquent:   report.tax.delinquent,
+          tax_year:   report.tax.tax_year,
+          annual_tax: report.tax.annual_tax,
+          tax_status: report.tax.tax_status,
+          delinquent: report.tax.delinquent,
         } : null,
-        foreclosure: report.foreclosure,  /* foreclosure is always free */
+        foreclosure: report.foreclosure,
         score:       report.score,
         valuation: report.valuation ? {
-          as_is_value:  report.valuation.as_is_value,
-          value_low:    report.valuation.value_low,
-          value_high:   report.valuation.value_high,
-          confidence:   report.valuation.confidence,
+          as_is_value: report.valuation.as_is_value,
+          value_low:   report.valuation.value_low,
+          value_high:  report.valuation.value_high,
+          confidence:  report.valuation.confidence,
         } : null,
         paywall: {
           locked_sections: ['Full owner details', 'Deed history', 'All liens & amounts', 'Mortgage analysis', 'Permit details', 'Code violations', 'Full comps', 'ARV estimate', 'Next steps', 'PDF export'],
-          pricing: { report: 25.00, basic: 29.00, pro: 99.00, gold: 250.00 }
-        }
+          pricing: pricing(),
+        },
       })
     }
 
@@ -109,7 +109,6 @@ router.get('/:folio', optionalAuth, async (req, res) => {
 
 /* GET /api/property/:folio/free — explicit free tier endpoint */
 router.get('/:folio/free', optionalAuth, async (req, res) => {
-  req.params.paid = false
   res.redirect(307, `/api/property/${req.params.folio}`)
 })
 
