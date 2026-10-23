@@ -1,138 +1,154 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../utils/api'
 
+const PLAN_CARDS = [
+  { id: 'investor', name: 'Investor', month: 29,  year: 290,  reports: 15,  seats: 1 },
+  { id: 'pro',      name: 'Pro',      month: 99,  year: 990,  reports: 50,  seats: 2, badge: 'Most Popular' },
+  { id: 'business', name: 'Business', month: 249, year: 2490, reports: 150, seats: 5 },
+]
+
+const money = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })
+
 export default function PaymentModal({ folio, address, onClose, onSuccess }) {
-  const [method, setMethod] = useState('card')
-  const [plan, setPlan] = useState('report')
-  const [loading, setLoading] = useState(false)
-  const [done, setDone] = useState(false)
+  const [status, setStatus] = useState(null)
+  const [loadingStatus, setLoadingStatus] = useState(true)
+  const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [billing, setBilling] = useState('month')
 
-  const prices = {
-    report:  { label: 'Single Report',      amount: 5.99,  fee: method === 'ach' ? 0.05 : 0.47 },
-    monthly: { label: 'Unlimited Monthly',  amount: 29.00, fee: method === 'ach' ? 0.23 : 0.97 },
-    annual:  { label: 'Annual Membership',  amount: 299.00, fee: method === 'ach' ? 2.40 : 8.97 }
+  useEffect(() => {
+    let cancelled = false
+    api.getBillingStatus()
+      .then(s => { if (!cancelled) setStatus(s) })
+      .catch(() => { if (!cancelled) setStatus({ plan: 'free', usage: null }) })
+      .finally(() => { if (!cancelled) setLoadingStatus(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  const goTo = (data) => {
+    if (data?.alreadyOwned) { onSuccess?.(); return }
+    if (data?.url) { window.location.href = data.url; return }
+    throw new Error('Could not open secure checkout. Please try again.')
   }
-  const p = prices[plan]
-  const total = (p.amount + p.fee).toFixed(2)
 
-  const handlePay = async () => {
-    setLoading(true); setError('')
+  const run = async (key, fn) => {
+    setBusy(key); setError('')
+    try { await fn() } catch (e) { setError(e.message) } finally { setBusy('') }
+  }
+
+  const useIncluded = () => run('unlock', async () => {
     try {
-      let data
-      if (plan === 'report') data = await api.checkoutReport(folio)
-      else if (plan === 'monthly') data = await api.checkoutMonthly()
-      else data = await api.checkoutAnnual()
-      // In production: window.location.href = data.url
-      // Demo: simulate success
-      setDone(true); onSuccess?.()
+      await api.unlockReport(folio)
+      onSuccess?.()
     } catch (e) {
-      setError(e.message)
-    } finally { setLoading(false) }
-  }
+      if (e.data?.needsOverage) {
+        setStatus(s => ({ ...s, usage: { ...(s?.usage || {}), remaining: 0 } }))
+        throw new Error('You have used all reports included this period. You can buy an extra report below.')
+      }
+      throw e
+    }
+  })
+
+  const buyOverage = () => run('overage', async () => goTo(await api.checkoutOverage(folio)))
+  const buySingle  = () => run('single', async () => goTo(await api.checkoutReport(folio)))
+  const subscribe  = (plan) => run(plan, async () => goTo(await api.checkoutMembership(plan, billing)))
+
+  const isMember = status && status.plan && status.plan !== 'free'
+  const remaining = status?.usage?.remaining ?? 0
 
   const overlay = { position: 'fixed', inset: 0, background: 'rgba(42,42,42,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: 16 }
-  const modal = { background: '#FAFAF8', width: '100%', maxWidth: 460, maxHeight: '92vh', overflowY: 'auto', borderRadius: 10 }
-  const mh = { background: '#2A2A2A', padding: '20px 26px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderRadius: '10px 10px 0 0' }
-  const pm = (on) => ({ flex: 1, border: `1px solid ${on ? '#C8A84B' : '#DDD8CC'}`, padding: 9, textAlign: 'center', cursor: 'pointer', fontSize: 11.5, background: on ? '#F2E8CC' : '#FAFAF8', borderRadius: 5 })
-  const pc = (on) => ({ border: `${on ? 2 : 1}px solid ${on ? '#C8A84B' : '#DDD8CC'}`, borderRadius: 6, padding: '14px 16px', cursor: 'pointer', background: on ? '#F2E8CC' : '#FAFAF8', position: 'relative', textAlign: 'center' })
+  const modal = { background: '#FAFAF8', width: '100%', maxWidth: 500, maxHeight: '92vh', overflowY: 'auto', borderRadius: 10 }
+  const header = { background: '#2A2A2A', padding: '20px 26px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderRadius: '10px 10px 0 0' }
+  const box = { border: '1px solid #DDD8CC', borderRadius: 8, padding: '14px 16px', marginBottom: 12, background: '#FFFFFF' }
+  const toggleBtn = (on) => ({ flex: 1, border: `1px solid ${on ? '#C8A84B' : '#DDD8CC'}`, background: on ? '#F2E8CC' : '#FAFAF8', padding: '7px 0', fontSize: 11.5, cursor: 'pointer', borderRadius: 5 })
 
   return (
     <div style={overlay} onClick={onClose}>
       <div style={modal} onClick={e => e.stopPropagation()}>
-        <div style={mh}>
+        <div style={header}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 300, color: '#fff' }}>Unlock Full Report</div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: 1, textTransform: 'uppercase', marginTop: 3 }}>{address}</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', letterSpacing: 1, textTransform: 'uppercase', marginTop: 3 }}>{address}</div>
           </div>
-          <button style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 19, cursor: 'pointer' }} onClick={onClose}>×</button>
+          <button style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 19, cursor: 'pointer' }} onClick={onClose} aria-label="Close">×</button>
         </div>
 
         <div style={{ padding: '22px 26px' }}>
-          {done ? (
-            <div style={{ textAlign: 'center', padding: '24px 0' }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>🔓</div>
-              <div style={{ fontSize: 18, fontWeight: 300, marginBottom: 6 }}>Access Granted</div>
-              <div style={{ fontSize: 12, color: '#9A9488', lineHeight: 1.7 }}>Your full intelligence report is now unlocked. A receipt has been sent to your email via Stripe.</div>
-              <button className="btn btn-gold" style={{ marginTop: 20, borderRadius: 4 }} onClick={onClose}>View Full Report →</button>
-            </div>
+          {error && <div className="alert alert-danger" style={{ marginBottom: 12 }}>{error}</div>}
+
+          {loadingStatus ? (
+            <div style={{ textAlign: 'center', padding: '30px 0', fontSize: 12.5, color: '#9A9488' }}>Checking your plan…</div>
+          ) : isMember ? (
+            <>
+              <div style={box}>
+                <div className="form-label" style={{ marginBottom: 4 }}>{status.planName} plan</div>
+                {status.usage ? (
+                  <div style={{ fontSize: 12.5, color: '#6B6456', marginBottom: 12 }}>
+                    {remaining} of {status.usage.included} reports left this period
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12.5, color: '#6B6456', marginBottom: 12 }}>
+                    Your billing period is renewing. Try again in a few minutes.
+                  </div>
+                )}
+                {remaining > 0 ? (
+                  <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center', borderRadius: 4 }} onClick={useIncluded} disabled={!!busy}>
+                    {busy === 'unlock' ? 'Unlocking…' : 'Use 1 included report →'}
+                  </button>
+                ) : status.usage && (
+                  <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center', borderRadius: 4 }} onClick={buyOverage} disabled={!!busy}>
+                    {busy === 'overage' ? 'Opening checkout…' : `Buy an extra report · ${money(status.overagePrice)} →`}
+                  </button>
+                )}
+              </div>
+            </>
           ) : (
             <>
-              {error && <div className="alert alert-danger" style={{ marginBottom: 12 }}>{error}</div>}
-
-              {/* PLAN SELECTOR */}
-              <div className="form-label" style={{ marginBottom: 8 }}>Choose Access</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
-                <div style={pc(plan === 'report')} onClick={() => setPlan('report')}>
-                  <div style={{ fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9A9488', marginBottom: 5 }}>Per Report</div>
-                  <div style={{ fontSize: 22, fontWeight: 300, color: '#2A2A2A', letterSpacing: -0.8 }}>$5.99</div>
-                  <div style={{ fontSize: 9.5, color: '#9A9488', marginTop: 3 }}>one report + PDF</div>
-                </div>
-                <div style={{ ...pc(plan === 'monthly'), position: 'relative' }} onClick={() => setPlan('monthly')}>
-                  {plan === 'monthly' && <div style={{ position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)', background: '#C8A84B', color: '#2A2A2A', fontSize: 8, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', padding: '1px 8px', borderRadius: 2, whiteSpace: 'nowrap' }}>Best Value</div>}
-                  <div style={{ fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9A9488', marginBottom: 5 }}>Monthly</div>
-                  <div style={{ fontSize: 22, fontWeight: 300, color: '#2A2A2A', letterSpacing: -0.8 }}>$29</div>
-                  <div style={{ fontSize: 9.5, color: '#9A9488', marginTop: 3 }}>unlimited · auto-renews</div>
-                </div>
-                <div style={pc(plan === 'annual')} onClick={() => setPlan('annual')}>
-                  <div style={{ fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9A9488', marginBottom: 5 }}>Annual</div>
-                  <div style={{ fontSize: 22, fontWeight: 300, color: '#2A2A2A', letterSpacing: -0.8 }}>$299</div>
-                  <div style={{ fontSize: 9.5, color: '#9A9488', marginTop: 3 }}>save $49/yr</div>
-                </div>
-              </div>
-
-              {/* PAYMENT METHOD */}
-              <div className="form-label" style={{ marginBottom: 8 }}>Payment Method</div>
-              <div style={{ display: 'flex', gap: 7, marginBottom: 14 }}>
-                <div style={pm(method === 'card')} onClick={() => setMethod('card')}>
-                  <div style={{ fontSize: 17, marginBottom: 3 }}>💳</div>Credit / Debit
-                </div>
-                <div style={pm(method === 'ach')} onClick={() => setMethod('ach')}>
-                  <div style={{ fontSize: 17, marginBottom: 3 }}>🏦</div>Bank (ACH)
-                </div>
-              </div>
-
-              {method === 'card' && (
-                <>
-                  <div className="form-group"><label className="form-label">Card Number</label><input className="input" placeholder="1234 5678 9012 3456" /></div>
-                  <div className="grid-2">
-                    <div className="form-group"><label className="form-label">Expiry</label><input className="input" placeholder="MM / YY" /></div>
-                    <div className="form-group"><label className="form-label">CVV</label><input className="input" placeholder="•••" /></div>
+              <div style={box}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 500 }}>This report only</div>
+                    <div style={{ fontSize: 11, color: '#9A9488' }}>One full report + PDF · one-time</div>
                   </div>
-                  <div className="form-group"><label className="form-label">Name on Card</label><input className="input" placeholder="Natalia Rodriguez" /></div>
-                </>
-              )}
-              {method === 'ach' && (
-                <>
-                  <div className="form-group"><label className="form-label">Routing Number</label><input className="input" placeholder="021000021" /></div>
-                  <div className="form-group"><label className="form-label">Account Number</label><input className="input" placeholder="Checking account number" /></div>
-                  <div className="form-group"><label className="form-label">Account Holder</label><input className="input" placeholder="Natalia Rodriguez" /></div>
-                </>
-              )}
-
-              <div className="alert alert-gold" style={{ marginBottom: 12 }}>
-                <span>Secured by Stripe · {method === 'card' ? '2.9% + 30¢ card fee' : '0.8% ACH fee (capped at $5)'} added below · No card data stored on our servers
-                </span>
+                  <div style={{ fontSize: 20, fontWeight: 300, color: '#A88C38' }}>$15</div>
+                </div>
+                <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center', borderRadius: 4 }} onClick={buySingle} disabled={!!busy}>
+                  {busy === 'single' ? 'Opening checkout…' : 'Buy this report →'}
+                </button>
               </div>
 
-              <div style={{ border: '1px solid #DDD8CC', borderRadius: 6, padding: '12px 14px', marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 4 }}>
-                  <span style={{ color: '#6B6456' }}>{p.label}</span><span>${p.amount.toFixed(2)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 6 }}>
-                  <span style={{ color: '#6B6456' }}>Processing fee</span><span>${p.fee.toFixed(2)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #DDD8CC', paddingTop: 8 }}>
-                  <span style={{ fontSize: 9.5, letterSpacing: 1.5, textTransform: 'uppercase', color: '#6B6456' }}>Total Charged</span>
-                  <span style={{ fontSize: 18, fontWeight: 300, letterSpacing: -0.5 }}>${total}</span>
-                </div>
+              <div className="form-label" style={{ margin: '18px 0 8px' }}>Or become a member</div>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                <button style={toggleBtn(billing === 'month')} onClick={() => setBilling('month')}>Monthly</button>
+                <button style={toggleBtn(billing === 'year')} onClick={() => setBilling('year')}>Annual · 2 months free</button>
               </div>
 
-              <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center', borderRadius: 4 }} onClick={handlePay} disabled={loading}>
-                {loading ? 'Processing…' : `Pay $${total} & Unlock →`}
-              </button>
+              {PLAN_CARDS.map(pl => (
+                <div key={pl.id} style={{ ...box, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 500 }}>
+                      {pl.name}
+                      {pl.badge && <span style={{ marginLeft: 6, fontSize: 8.5, letterSpacing: 1, textTransform: 'uppercase', background: '#C8A84B', color: '#2A2A2A', padding: '1px 6px', borderRadius: 2 }}>{pl.badge}</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#9A9488' }}>{pl.reports} full reports/month · {pl.seats} {pl.seats === 1 ? 'user' : 'users'}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 16, fontWeight: 300, color: '#A88C38' }}>
+                      {billing === 'month' ? `${money(pl.month)}/mo` : `${money(pl.year)}/yr`}
+                    </div>
+                    <button className="btn btn-outline btn-sm" style={{ marginTop: 4 }} onClick={() => subscribe(pl.id)} disabled={!!busy}>
+                      {busy === pl.id ? 'Opening…' : 'Choose →'}
+                    </button>
+                  </div>
+                </div>
+              ))}
             </>
           )}
+
+          <div style={{ fontSize: 10.5, color: '#9A9488', lineHeight: 1.6, marginTop: 8, textAlign: 'center' }}>
+            Secure checkout by Stripe · Card details are never stored on Miami Opportunities servers.
+            <br />Reports summarize public records — not a title search, title commitment or appraisal.
+          </div>
         </div>
       </div>
     </div>
