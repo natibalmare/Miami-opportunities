@@ -13,6 +13,10 @@ async function req(path, opts = {}) {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Request failed' }))
+    if (res.status === 401 && err.code === 'SESSION_REPLACED') {
+      localStorage.removeItem('mo_token')
+      window.dispatchEvent(new CustomEvent('mo:session-replaced', { detail: err.error }))
+    }
     const e = new Error(err.error || err.message || `HTTP ${res.status}`)
     e.status = res.status
     e.data = err
@@ -27,6 +31,9 @@ export const api = {
   me:       () => req('/api/auth/me'),
   verifyEmail: (code) => req('/api/auth/verify-email', { method: 'POST', body: { code } }),
   resendCode:  () => req('/api/auth/resend-code', { method: 'POST' }),
+  logout:      () => req('/api/auth/logout', { method: 'POST' }),
+  forgotPassword: (email) => req('/api/auth/forgot-password', { method: 'POST', body: { email } }),
+  resetPassword:  (email, code, password) => req('/api/auth/reset-password', { method: 'POST', body: { email, code, password } }),
 
   search: (q, type = 'address') =>
     req(`/api/search?q=${encodeURIComponent(q)}&type=${type}`),

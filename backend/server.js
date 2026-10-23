@@ -16,6 +16,7 @@ const paymentsRoutes  = require('./routes/payments')
 const leadsRoutes     = require('./routes/leads')
 const boardRoutes     = require('./routes/board')
 const sourcesRoutes   = require('./routes/sources')
+const { ensureSchema } = require('./db/ensureSchema')
 
 const app = express()
 
@@ -69,4 +70,6 @@ app.use((err, req, res, next) => {
 })
 
 const PORT = process.env.PORT || 4000
-app.listen(PORT, () => console.log(`MO Miami backend v2.0 running on :${PORT}`))
+ensureSchema()
+  .catch(e => console.error('Schema check error:', e.message))
+  .finally(() => app.listen(PORT, () => console.log(`MO Miami backend v2.0 running on :${PORT}`)))

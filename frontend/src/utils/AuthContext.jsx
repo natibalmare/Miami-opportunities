@@ -12,12 +12,28 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (token) {
       api.me().then(u => setUser(u)).catch(() => {
-        setToken(null); localStorage.removeItem('mo_token')
+        setUser(null); setToken(null); localStorage.removeItem('mo_token')
       }).finally(() => setLoading(false))
     } else {
       setLoading(false)
     }
   }, [token])
+
+  /* Another device signed in to this account — this device is signed out */
+  useEffect(() => {
+    let shown = false
+    const onReplaced = (e) => {
+      setUser(null); setToken(null)
+      localStorage.removeItem('mo_token')
+      if (!shown) {
+        shown = true
+        window.alert(e.detail || 'Your account was signed in on another device. Please sign in again.')
+        setTimeout(() => { shown = false }, 3000)
+      }
+    }
+    window.addEventListener('mo:session-replaced', onReplaced)
+    return () => window.removeEventListener('mo:session-replaced', onReplaced)
+  }, [])
 
   const login = (userData, userToken) => {
     setUser(userData); setToken(userToken)
@@ -25,6 +41,7 @@ export function AuthProvider({ children }) {
   }
 
   const logout = () => {
+    if (localStorage.getItem('mo_token')) api.logout().catch(() => {})
     setUser(null); setToken(null)
     localStorage.removeItem('mo_token')
   }

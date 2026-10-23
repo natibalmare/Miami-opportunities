@@ -13,6 +13,9 @@ export default function AuthModal({ onClose, afterLogin }) {
   const [awaitingCode, setAwaitingCode] = useState(false)
   const [code, setCode] = useState('')
   const [resendMsg, setResendMsg] = useState('')
+  const [resetCode, setResetCode] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [info, setInfo] = useState('')
 
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }))
 
@@ -63,6 +66,39 @@ export default function AuthModal({ onClose, afterLogin }) {
       setResendMsg('New code sent — check your email')
     } catch (e) {
       setError(e.message)
+    }
+  }
+
+  const goTo = (m) => { setError(''); setInfo(''); setMode(m) }
+
+  const sendResetCode = async () => {
+    setError(''); setInfo(''); setLoading(true)
+    try {
+      if (!form.email) throw new Error('Enter the email you signed up with')
+      await api.forgotPassword(form.email)
+      setResetCode(''); setNewPassword('')
+      setMode('reset')
+      setInfo('If that email has an account, we sent a 6-digit code. It expires in 15 minutes.')
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const submitReset = async () => {
+    setError(''); setLoading(true)
+    try {
+      if (resetCode.length !== 6) throw new Error('Enter the 6-digit code from your email')
+      if (newPassword.length < 8) throw new Error('New password must be at least 8 characters')
+      const data = await api.resetPassword(form.email, resetCode, newPassword)
+      login(data.user, data.token)
+      afterLogin?.()
+      onClose()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -119,6 +155,69 @@ export default function AuthModal({ onClose, afterLogin }) {
     )
   }
 
+  const linkBtn = { background: 'none', border: 'none', color: '#A88C38', cursor: 'pointer', fontSize: 11 }
+
+  if (mode === 'forgot' || mode === 'reset') {
+    return (
+      <div style={overlay} onClick={onClose}>
+        <div style={modal} onClick={e => e.stopPropagation()}>
+          <div style={mh}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 300, color: '#fff', letterSpacing: -0.3 }}>Reset Password</div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: 1, textTransform: 'uppercase', marginTop: 3 }}>
+                {mode === 'forgot' ? 'We will email you a code' : 'Enter code and new password'}
+              </div>
+            </div>
+            <button style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 19, cursor: 'pointer' }} onClick={onClose}>×</button>
+          </div>
+          <div style={mb}>
+            {error && <div className="alert alert-danger" style={{ marginBottom: 13 }}>{error}</div>}
+            {info && <div className="alert alert-success" style={{ marginBottom: 13 }}>{info}</div>}
+
+            <div className="form-group">
+              <label className="form-label">Email</label>
+              <input className="input" type="email" value={form.email} onChange={set('email')} placeholder="your@email.com" disabled={mode === 'reset'} />
+            </div>
+
+            {mode === 'forgot' ? (
+              <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center', marginTop: 4, borderRadius: 4 }} onClick={sendResetCode} disabled={loading}>
+                {loading ? 'Sending…' : 'Send Reset Code →'}
+              </button>
+            ) : (
+              <>
+                <div className="form-group">
+                  <label className="form-label">6-Digit Code</label>
+                  <input
+                    className="input"
+                    value={resetCode}
+                    onChange={e => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    style={{ fontSize: 20, letterSpacing: 6, textAlign: 'center' }}
+                    maxLength={6}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">New Password *</label>
+                  <input className="input" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Minimum 8 characters" />
+                </div>
+                <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center', marginTop: 4, borderRadius: 4 }} onClick={submitReset} disabled={loading}>
+                  {loading ? 'Saving…' : 'Save New Password & Sign In →'}
+                </button>
+                <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11, color: '#9A9488' }}>
+                  Didn't get it? <button style={linkBtn} onClick={sendResetCode} disabled={loading}>Send a new code</button>
+                </div>
+              </>
+            )}
+
+            <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11, color: '#9A9488' }}>
+              <button style={linkBtn} onClick={() => goTo('login')}>← Back to sign in</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={overlay} onClick={onClose}>
       <div style={modal} onClick={e => e.stopPropagation()}>
@@ -128,7 +227,7 @@ export default function AuthModal({ onClose, afterLogin }) {
               {mode === 'register' ? 'Create Your Account' : 'Sign In'}
             </div>
             <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: 1, textTransform: 'uppercase', marginTop: 3 }}>
-              {mode === 'register' ? 'Free · Full reports from $5.99' : 'Welcome back'}
+              {mode === 'register' ? 'Free · Full reports from $15' : 'Welcome back'}
             </div>
           </div>
           <button style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 19, cursor: 'pointer' }} onClick={onClose}>×</button>
@@ -197,6 +296,11 @@ export default function AuthModal({ onClose, afterLogin }) {
           <div className="form-group">
             <label className="form-label">Password *</label>
             <input className="input" type="password" value={form.password} onChange={set('password')} placeholder="Minimum 8 characters" />
+            {mode === 'login' && (
+              <div style={{ textAlign: 'right', marginTop: 6 }}>
+                <button style={linkBtn} onClick={() => goTo('forgot')}>Forgot password?</button>
+              </div>
+            )}
           </div>
 
           {mode === 'register' && (
@@ -211,8 +315,8 @@ export default function AuthModal({ onClose, afterLogin }) {
 
           <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11, color: '#9A9488' }}>
             {mode === 'register'
-              ? <span>Already have an account? <button style={{ background: 'none', border: 'none', color: '#A88C38', cursor: 'pointer', fontSize: 11 }} onClick={() => setMode('login')}>Sign in</button></span>
-              : <span>New here? <button style={{ background: 'none', border: 'none', color: '#A88C38', cursor: 'pointer', fontSize: 11 }} onClick={() => setMode('register')}>Create account</button></span>
+              ? <span>Already have an account? <button style={{ background: 'none', border: 'none', color: '#A88C38', cursor: 'pointer', fontSize: 11 }} onClick={() => goTo('login')}>Sign in</button></span>
+              : <span>New here? <button style={{ background: 'none', border: 'none', color: '#A88C38', cursor: 'pointer', fontSize: 11 }} onClick={() => goTo('register')}>Create account</button></span>
             }
           </div>
         </div>
