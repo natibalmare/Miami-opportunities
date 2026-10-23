@@ -364,7 +364,7 @@ router.post('/overage/checkout', requireAuth, async (req, res) => {
         price_data: {
           currency: 'usd',
           unit_amount: Math.round(amount * 100),
-          product_data: { name: `MO Extra Report (${PLANS[sub.plan].name} rate)` },
+          product_data: { name: `MO Extra Report (${PLANS[sub.plan].name} rate)`, tax_code: 'txcd_10701410' },
         },
         quantity: 1,
       }],
