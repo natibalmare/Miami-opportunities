@@ -58,8 +58,11 @@ async function enrichMiamiDade() {
         const full = Number(r.BATHROOM_COUNT) || 0
         const half = Number(r.HALF_BATHROOM_COUNT) || 0
         folios.push(String(r.FOLIO).trim())
-        beds.push(Number(r.BEDROOM_COUNT) > 0 ? Number(r.BEDROOM_COUNT) : null)
-        baths.push(full + half > 0 ? full + half * 0.5 : null)
+        /* Whole-building totals (e.g. a 300-unit condo tower) are not useful room counts — leave them blank */
+        const bedCount = Number(r.BEDROOM_COUNT) || 0
+        const bathCount = full + half * 0.5
+        beds.push(bedCount > 0 && bedCount <= 50 ? bedCount : null)
+        baths.push(bathCount > 0 && bathCount <= 50 ? bathCount : null)
         subs.push(r.SUBDIVISION ? String(r.SUBDIVISION).trim() : null)
       }
       if (folios.length) {
