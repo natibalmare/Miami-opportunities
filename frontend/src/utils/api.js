@@ -13,7 +13,10 @@ async function req(path, opts = {}) {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Request failed' }))
-    throw new Error(err.error || err.message || `HTTP ${res.status}`)
+    const e = new Error(err.error || err.message || `HTTP ${res.status}`)
+    e.status = res.status
+    e.data = err
+    throw e
   }
   return res.json()
 }
@@ -36,10 +39,14 @@ export const api = {
   getLiens: (folio) => req(`/api/liens/${folio}`),
   lookupLLC: (name) => req(`/api/llc?name=${encodeURIComponent(name)}`),
 
+  /* Payments — Single Report $15, Investor / Pro / Business memberships */
+  getPlans:           () => req('/api/payments/plans'),
+  getBillingStatus:   () => req('/api/payments/status'),
+  getAccess:          (folio) => req(`/api/payments/access/${encodeURIComponent(folio)}`),
   checkoutReport:     (folio) => req('/api/payments/checkout', { method: 'POST', body: { folio } }),
-  checkoutMembership: (plan)  => req('/api/payments/membership/checkout', { method: 'POST', body: { plan } }),
-  unlockWithCredit:   (folio) => req('/api/payments/unlock', { method: 'POST', body: { folio } }),
-  getBalance:         () => req('/api/payments/balance'),
+  checkoutMembership: (plan, interval = 'month') => req('/api/payments/membership/checkout', { method: 'POST', body: { plan, interval } }),
+  unlockReport:       (folio) => req('/api/payments/unlock', { method: 'POST', body: { folio } }),
+  checkoutOverage:    (folio) => req('/api/payments/overage/checkout', { method: 'POST', body: { folio } }),
   getBillingPortal:   () => req('/api/payments/portal'),
 
   getLeads:    () => req('/api/leads'),
