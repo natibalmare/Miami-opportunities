@@ -159,6 +159,27 @@ export default function ReportPage() {
     return () => { cancelled = true }
   }, [q])
 
+  /* Is this report already unlocked for the signed-in user?
+     After a Stripe payment (?paid=true) keep checking briefly while the payment confirms. */
+  const folioForAccess = prop?.folio
+  const paidReturn = params.get('paid') === 'true'
+  useEffect(() => {
+    if (!user || !folioForAccess) return
+    let cancelled = false
+    let tries = 0
+    let timer = null
+    const check = async () => {
+      try {
+        const r = await api.getAccess(folioForAccess)
+        if (cancelled) return
+        if (r.unlocked) { setUnlocked(true); return }
+      } catch (e) { /* keep report visible; access stays locked */ }
+      if (paidReturn && !cancelled && ++tries < 10) timer = setTimeout(check, 2000)
+    }
+    check()
+    return () => { cancelled = true; if (timer) clearTimeout(timer) }
+  }, [user, folioForAccess, paidReturn])
+
   const scoreColor = (s) => s >= 76 ? '#B84040' : s >= 51 ? '#A88C38' : s >= 26 ? '#8C6010' : '#9A9488'
   const toggle = (k) => setCollapsed(p => ({ ...p, [k]: !p[k] }))
 
@@ -244,7 +265,7 @@ export default function ReportPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-gold btn-sm" onClick={() => user ? setPayOpen(true) : setAuthOpen(true)}>
+            <button className="btn btn-gold btn-sm" onClick={() => unlocked ? window.print() : user ? setPayOpen(true) : setAuthOpen(true)}>
               {unlocked ? '📄 Export PDF' : 'View Full Report'}
             </button>
             <button className="btn btn-ghost btn-sm" style={{ color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.15)' }}>Save Lead</button>
