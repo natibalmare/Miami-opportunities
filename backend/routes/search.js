@@ -53,7 +53,9 @@ router.get('/suggest', async (req, res) => {
     if (q.length < 3 || q.length > 80) return res.json({ suggestions: [] })
     const [md, other] = await Promise.all([mdpa.suggestAddresses(q, 6), suggestFromParcels(q, 6)])
     const mdItems = (md || []).map(s => ({ ...s, county: 'Miami-Dade' }))
+    const seen = new Set()
     const suggestions = [...mdItems, ...other]
+      .filter(s => { const k = s.label.toUpperCase(); if (seen.has(k)) return false; seen.add(k); return true })
       .sort((a, b) => a.address.localeCompare(b.address, 'en', { numeric: true }))
       .slice(0, 8)
     if (md === null && !other.length) return res.status(502).json({ suggestions: [], error: 'County records are not responding' })
