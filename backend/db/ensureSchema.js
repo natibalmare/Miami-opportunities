@@ -72,6 +72,17 @@ async function ensureSchema() {
        finished_at TIMESTAMPTZ
      )`,
   ]
+  /* Emergency cleanup: set DATA_RESET=parcels on Railway to empty the county property table and free disk space */
+  if (process.env.DATA_RESET === 'parcels') {
+    try {
+      await query('TRUNCATE parcels')
+      await query("UPDATE data_imports SET status='failed', error='Reset', finished_at=NOW() WHERE status='running'")
+      console.log('[data] county property table emptied (DATA_RESET=parcels)')
+    } catch (e) {
+      console.error('[data] reset failed:', e.message)
+    }
+  }
+
   for (const sql of statements) {
     try {
       await query(sql)
