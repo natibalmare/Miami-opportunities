@@ -99,7 +99,10 @@ async function runOnce() {
     try { await publicRecords.syncAll() } catch (e) { console.error('[records] sync error —', e.message) }
 
     /* Broward official records (deeds, mortgages, liens, lis pendens, judgments) from the Clerk's public files */
-    try { await syncBroward(dbTooBig) } catch (e) { console.error('[or] Broward sync error —', e.message) }
+    try { await syncBroward(dbTooBig) } catch (e) {
+      console.error('[or] Broward sync error —', e.message, '— trying again in 30 minutes')
+      setTimeout(() => syncBroward(dbTooBig).catch(err => console.error('[or] Broward retry failed —', err.message)), 30 * 60 * 1000)
+    }
   } finally {
     await lockClient.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {})
     lockClient.release()

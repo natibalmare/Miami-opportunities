@@ -133,8 +133,16 @@ async function syncBroward(tooBig) {
   await ensureTables()
   const done = new Set((await query(`SELECT file_name FROM data_imports WHERE county_no=16 AND source='broward-or' AND status='done'`)).rows.map(r => r.file_name))
   const SftpClient = require('ssh2-sftp-client')
-  const sftp = new SftpClient()
-  await sftp.connect(HOST)
+  let sftp
+  for (let attempt = 1; ; attempt++) {
+    sftp = new SftpClient()
+    try { await sftp.connect({ ...HOST, readyTimeout: 60000, retries: 2, retry_minTimeout: 5000 }); break } catch (e) {
+      await sftp.end().catch(() => {})
+      if (attempt >= 3) throw e
+      console.log(`[or] Broward server busy (${e.message}) — retrying in ${attempt * 30}s`)
+      await new Promise(r => setTimeout(r, attempt * 30000))
+    }
+  }
   try {
     const yearly = (await sftp.list(YEARLY_DIR)).filter(f => f.type === '-' && kindOf(f.name) && YEARS.some(y => f.name.startsWith(`CY${y}`)))
     const daily = (await sftp.list(DAILY_DIR)).filter(f => f.type === '-' && kindOf(f.name)).sort((a, b) => a.modifyTime - b.modifyTime)
