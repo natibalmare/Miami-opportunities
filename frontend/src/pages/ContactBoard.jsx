@@ -62,7 +62,6 @@ export default function ContactBoard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 500, color: '#A88C38' }}>{l.budget}</div>
               <div style={{ fontSize: 11.5, color: '#9AA4A3' }}>Contact details appear here for members</div>
-              </div>
             </div>
           </div>
         </div>
