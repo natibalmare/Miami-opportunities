@@ -55,7 +55,7 @@ const SOURCES = [
       unsafe: /unsafe/i.test(`${a.CASE_TYPE} ${a.VIOL_NAME}`) }),
   },
   {
-    id: 'mia_permits', county: 23, name: 'City of Miami — building permits', kind: 'permit', sync: false,
+    id: 'mia_permits', county: 23, name: 'City of Miami — building permits', kind: 'permit', sync: false, statusField: 'PermitStatus',
     url: 'https://gis.miami.gov/gis/rest/services/Maps/iBuildPermits/MapServer/0', idField: 'FOLIO',
     map: (a) => ({ caseNum: txt(a.PermitNumber) || txt(a.ApplicationNumber), type: txt(a.PermitType) || txt(a.MasterPermitType) || txt(a.ApplicationType),
       status: txt(a.PermitStatus) || txt(a.MasterPermitStatus), open: isOpenStatus(a.PermitStatus || a.MasterPermitStatus),
@@ -69,13 +69,13 @@ const SOURCES = [
       opened: date(a.SubmittedDate), lastActivity: date(a.PlanStatusDate) || date(a.UpdatedDate), description: txt(a.PlanStatusReason), address: txt(a.Address) }),
   },
   {
-    id: 'ftl_permits', county: 16, name: 'Fort Lauderdale — building permits', kind: 'permit', sync: false,
+    id: 'ftl_permits', county: 16, name: 'Fort Lauderdale — building permits', kind: 'permit', sync: false, statusField: 'PERMITSTAT',
     url: 'https://gis.fortlauderdale.gov/arcgis/rest/services/BuildingPermitTracker/BuildingPermitTracker/MapServer/0', idField: 'PARCELID',
     map: (a) => ({ caseNum: txt(a.PERMITID), type: txt(a.PERMITTYPE), status: txt(a.PERMITSTAT), open: isOpenStatus(a.PERMITSTAT),
       opened: date(a.APPROVEDT) || date(a.SUBMITDT), description: txt(a.PERMITDESC), address: txt(a.FULLADDR), cost: a.ESTCOST || null, contractor: txt(a.CONTRACTOR) }),
   },
   {
-    id: 'ftl_code', county: 16, name: 'Fort Lauderdale — code cases', kind: 'code', sync: true,
+    id: 'ftl_code', county: 16, name: 'Fort Lauderdale — code cases', kind: 'code', sync: false, statusField: 'CASESTATUS',
     url: 'https://gis.fortlauderdale.gov/arcgis/rest/services/CodeCaseTracker/CodeCase/MapServer/0', idField: 'PARCELID',
     map: (a) => ({ caseNum: txt(a.CASENUM), type: txt(a.CASETYPE), status: txt(a.CASESTATUS), open: isOpenStatus(a.CASESTATUS),
       opened: date(a.INITDATE), address: txt(a.SITEADDRESS) }),
@@ -203,6 +203,12 @@ async function verifySources() {
     try {
       const j = await arcgis(s.url, { where: '1=1', returnCountOnly: 'true' })
       console.log(`[records] check ${s.name}: ${Number(j.count || 0).toLocaleString()} records available`)
+      if (s.statusField) {
+        const st = await arcgis(s.url, { where: '1=1', groupByFieldsForStatistics: s.statusField,
+          outStatistics: JSON.stringify([{ statisticType: 'count', onStatisticField: s.statusField, outStatisticFieldName: 'n' }]) })
+        const vals = (st.features || []).map(f => `${f.attributes[s.statusField]}=${f.attributes.n}`).slice(0, 40).join(', ')
+        console.log(`[records] statuses ${s.name}: ${vals}`)
+      }
     } catch (e) {
       console.error(`[records] check ${s.name}: unreachable — ${e.message}`)
     }
