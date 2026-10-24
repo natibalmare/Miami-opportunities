@@ -236,6 +236,7 @@ export function OfficialRecords({ countyNo, parcelId, compact = false, onUnlock 
                     {d.typeLabel}
                     {d.type === 'M' && <div style={{ fontSize: 10.5, fontWeight: 400, color: d.releasedBy.length ? '#2E7D6B' : '#8A6A2E' }}>{d.releasedBy.length ? `Released ${fmtDate(d.releasedBy[0].date)}` : 'No release on file'}</div>}
                     {d.caseNumber && <div style={{ fontSize: 10.5, fontWeight: 400, color: '#7A8584' }}>Case {d.caseNumber}</div>}
+                    {d.matchedBy === 'owner name' && <div style={{ fontSize: 10.5, fontWeight: 400, color: '#B84040' }}>Matched by owner name — confirm it is the same person</div>}
                   </td>
                   <td style={{ fontSize: 11.5 }}>{d.from || '—'}</td>
                   <td style={{ fontSize: 11.5 }}>{d.to || '—'}</td>

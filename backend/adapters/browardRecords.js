@@ -7,7 +7,6 @@
 //   lgl  : instrument | legal description | parcel id
 //   lnk  : instrument | | | O | doc type | linked instrument | | | O | linked type | …
 
-const readline = require('readline')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -116,11 +115,16 @@ async function importFile(sftp, dir, file) {
     const t0 = Date.now()
     await sftp.fastGet(`${dir}/${file.name}`, local, { concurrency: 32, chunkSize: 65536 })
     if (file.size > 5e6) console.log(`[or] Broward ${file.name}: downloaded ${Math.round(file.size / 1e6)} MB in ${Math.round((Date.now() - t0) / 1000)}s`)
-    const stream = fs.createReadStream(local, { encoding: 'latin1' })
-    stream.on('close', () => fs.promises.unlink(local).catch(() => {}))
-    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
+    /* Read the whole file (largest is ~65 MB) and process it in batches */
+    const text = await fs.promises.readFile(local, 'latin1')
+    fs.promises.unlink(local).catch(() => {})
     let batch = []
-    for await (const line of rl) {
+    let start = 0
+    while (start < text.length) {
+      let end = text.indexOf('\n', start)
+      if (end === -1) end = text.length
+      const line = text.slice(start, end).replace(/\r$/, '')
+      start = end + 1
       if (!line) continue
       const row = KINDS[kind].parse(line.split('|'))
       if (!row) continue
@@ -175,8 +179,24 @@ async function syncBroward(tooBig) {
 }
 
 /* Recorded documents for one Broward parcel, newest first, with who signed / received and linked releases */
+const norm = (n) => String(n || '').toUpperCase().replace(/[^A-Z0-9&]+/g, ' ').trim()
+const NAME_TYPES = ['LP', 'FJ', 'CFJ', 'J', 'LN', 'L', 'CL', 'TL', 'FTL', 'CEL', 'PRO']
+
 async function documentsFor(parcelId) {
   const pid = String(parcelId || '').toUpperCase().replace(/[^0-9A-Z]/g, '')
+  /* Filings that name the current owner (lawsuits, liens, probate usually carry no parcel number) */
+  const own = (await query('SELECT own_name FROM parcels WHERE county_no = 16 AND parcel_id = $1', [pid])).rows[0]?.own_name
+  const ownNorm = norm(own)
+  let nameInstrs = []
+  if (ownNorm.split(' ').length >= 2 && ownNorm.length >= 6) {
+    const first = ownNorm.split(' ')[0]
+    const n = await query(
+      `SELECT DISTINCT n.instr FROM or_names n JOIN or_docs d ON d.county_no = n.county_no AND d.instr = n.instr
+        WHERE n.county_no = 16 AND n.name LIKE $1 AND regexp_replace(n.name, '[^A-Z0-9&]+', ' ', 'g') = $2
+          AND d.doc_type = ANY($3::text[]) AND d.rec_date >= CURRENT_DATE - INTERVAL '3 years'
+        LIMIT 50`, [`${first}%`, ownNorm, NAME_TYPES])
+    nameInstrs = n.rows.map(x => x.instr)
+  }
   const r = await query(
     `SELECT d.instr, to_char(d.rec_date, 'YYYY-MM-DD') AS rec_date, d.doc_type, d.consideration, d.book, d.page, d.pages, d.case_no,
             (SELECT string_agg(n.name, '; ' ORDER BY n.seq) FROM or_names n WHERE n.county_no = 16 AND n.instr = d.instr AND n.side = 'D') AS from_names,
@@ -184,13 +204,14 @@ async function documentsFor(parcelId) {
             (SELECT json_agg(json_build_object('instr', l.instr, 'type', d2.doc_type, 'date', to_char(d2.rec_date, 'YYYY-MM-DD')))
                FROM or_links l LEFT JOIN or_docs d2 ON d2.county_no = 16 AND d2.instr = l.instr
               WHERE l.county_no = 16 AND l.linked_instr = d.instr) AS released_by
-       FROM or_parcels op JOIN or_docs d ON d.county_no = op.county_no AND d.instr = op.instr
-      WHERE op.county_no = 16 AND op.parcel_id = $1
-      ORDER BY d.rec_date DESC NULLS LAST LIMIT 200`, [pid])
+       FROM or_docs d
+      WHERE d.county_no = 16 AND (d.instr IN (SELECT instr FROM or_parcels WHERE county_no = 16 AND parcel_id = $1) OR d.instr = ANY($2::bigint[]))
+      ORDER BY d.rec_date DESC NULLS LAST LIMIT 200`, [pid, nameInstrs])
   return r.rows.map(x => ({
     instrument: String(x.instr), date: x.rec_date, type: x.doc_type, typeLabel: docLabel(x.doc_type),
     amount: x.consideration ? Number(x.consideration) : null, book: x.book, page: x.page, pages: x.pages, caseNumber: x.case_no,
     from: x.from_names, to: x.to_names, releasedBy: x.released_by || [],
+    matchedBy: nameInstrs.some(i => String(i) === String(x.instr)) ? 'owner name' : 'parcel',
   }))
 }
 
