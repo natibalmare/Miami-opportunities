@@ -55,7 +55,7 @@ const SOURCES = [
       unsafe: /unsafe/i.test(`${a.CASE_TYPE} ${a.VIOL_NAME}`) }),
   },
   {
-    id: 'mia_permits', county: 23, name: 'City of Miami — building permits', kind: 'permit', sync: false, statusField: 'PermitStatus',
+    id: 'mia_permits', county: 23, name: 'City of Miami — building permits', kind: 'permit', sync: false,
     url: 'https://gis.miami.gov/gis/rest/services/Maps/iBuildPermits/MapServer/0', idField: 'FOLIO',
     map: (a) => ({ caseNum: txt(a.PermitNumber) || txt(a.ApplicationNumber), type: txt(a.PermitType) || txt(a.MasterPermitType) || txt(a.ApplicationType),
       status: txt(a.PermitStatus) || txt(a.MasterPermitStatus), open: isOpenStatus(a.PermitStatus || a.MasterPermitStatus),
@@ -69,15 +69,15 @@ const SOURCES = [
       opened: date(a.SubmittedDate), lastActivity: date(a.PlanStatusDate) || date(a.UpdatedDate), description: txt(a.PlanStatusReason), address: txt(a.Address) }),
   },
   {
-    id: 'ftl_permits', county: 16, name: 'Fort Lauderdale — building permits', kind: 'permit', sync: false, statusField: 'PERMITSTAT',
+    id: 'ftl_permits', county: 16, name: 'Fort Lauderdale — building permits', kind: 'permit', sync: false,
     url: 'https://gis.fortlauderdale.gov/arcgis/rest/services/BuildingPermitTracker/BuildingPermitTracker/MapServer/0', idField: 'PARCELID',
     map: (a) => ({ caseNum: txt(a.PERMITID), type: txt(a.PERMITTYPE), status: txt(a.PERMITSTAT), open: isOpenStatus(a.PERMITSTAT),
       opened: date(a.APPROVEDT) || date(a.SUBMITDT), description: txt(a.PERMITDESC), address: txt(a.FULLADDR), cost: a.ESTCOST || null, contractor: txt(a.CONTRACTOR) }),
   },
   {
-    id: 'ftl_code', county: 16, name: 'Fort Lauderdale — code cases', kind: 'code', sync: false, statusField: 'CASESTATUS',
+    id: 'ftl_code', county: 16, name: 'Fort Lauderdale — code cases', kind: 'code', sync: true,
     url: 'https://gis.fortlauderdale.gov/arcgis/rest/services/CodeCaseTracker/CodeCase/MapServer/0', idField: 'PARCELID',
-    map: (a) => ({ caseNum: txt(a.CASENUM), type: txt(a.CASETYPE), status: txt(a.CASESTATUS), open: isOpenStatus(a.CASESTATUS),
+    map: (a) => ({ caseNum: txt(a.CASENUM), type: txt(a.CASETYPE), status: a.CASESTATUS === 'O' ? 'Open' : a.CASESTATUS === 'C' ? 'Closed' : txt(a.CASESTATUS), open: a.CASESTATUS === 'O',
       opened: date(a.INITDATE), address: txt(a.SITEADDRESS) }),
   },
 ]
@@ -147,9 +147,11 @@ function summarize(records) {
   if (liens.length) flags.push(`${liens.length} code lien${liens.length > 1 ? 's' : ''} recorded`)
   if (recert.length) flags.push('Building recertification not completed')
   if (permitsOpen.length) flags.push(`${permitsOpen.length} open or unfinished permit${permitsOpen.length > 1 ? 's' : ''}`)
+  const expired = records.filter(r => r.kind === 'permit' && /expired/i.test(String(r.status || '')))
+  if (expired.length) flags.push(`${expired.length} expired permit${expired.length > 1 ? 's' : ''} — may need to be reopened and closed`)
   return {
     openCode: code.length, codeLiens: liens.length, openBuildingViolations: bv.length, unsafe: unsafe.length > 0,
-    openPermits: permitsOpen.length, totalPermits: records.filter(r => r.kind === 'permit').length, recertPending: recert.length > 0,
+    openPermits: permitsOpen.length, expiredPermits: expired.length, totalPermits: records.filter(r => r.kind === 'permit').length, recertPending: recert.length > 0,
     financingFlags: flags,
   }
 }
