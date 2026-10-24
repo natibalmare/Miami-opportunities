@@ -217,6 +217,8 @@ async function verifySources() {
 
 async function syncAll() {
   await ensureTable()
+  /* Drop stored cases from sources that are not synced (e.g. paused while being checked) */
+  await query('DELETE FROM public_cases WHERE source <> ALL($1::text[])', [SOURCES.filter(x => x.sync).map(x => x.id)])
   await verifySources()
   const lock = await pool.connect()
   try {
