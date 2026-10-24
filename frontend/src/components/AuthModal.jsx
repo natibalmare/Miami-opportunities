@@ -1,3 +1,4 @@
+import { AGENTS_OPEN } from '../utils/features'
 import { useState } from 'react'
 import { useAuth } from '../utils/AuthContext'
 import { api } from '../utils/api'
@@ -242,7 +243,7 @@ export default function AuthModal({ onClose, afterLogin, initialMode = 'login' }
             <>
               <div className="form-label">I am a</div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                {[['buyer', '🏠', 'Buyer / Investor', 'Looking to purchase'], ['seller', '📋', 'Seller', 'Have a property'], ['agent', '🤝', 'Agent', 'Licensed professional']].map(([v, ic, n, d]) => (
+                {[['buyer', '🏠', 'Buyer / Investor', 'Looking to purchase'], ['seller', '📋', 'Seller', 'Have a property'], ['agent', '🤝', 'Agent', 'Licensed professional']].filter(([v]) => AGENTS_OPEN || v !== 'agent').map(([v, ic, n, d]) => (
                   <div key={v} style={rl(role === v)} onClick={() => setRole(v)}>
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{ic}</div>
                     <div style={{ fontSize: 11.5, fontWeight: 500 }}>{n}</div>

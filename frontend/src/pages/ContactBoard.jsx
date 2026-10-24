@@ -80,6 +80,7 @@ export default function ContactBoard() {
             <div className="card-body">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
                 <span className={`badge badge-${l.type === 'fsbo' ? 'gold' : 'blue'}`}>{l.type === 'fsbo' ? 'For Sale By Owner' : 'Buyer'}</span>
+                {!l.isPublic && !l.mine && <span className="badge badge-red" title="Only your team can see this post until it goes public">Early access · public {new Date(l.publicAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric' })}</span>}
                 <span style={{ fontSize: 11, color: '#9A9488' }}>{ago(l.createdAt)}</span>
               </div>
               {l.type === 'fsbo' ? (

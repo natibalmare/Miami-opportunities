@@ -5,7 +5,8 @@
 const router = require('express').Router()
 const { query } = require('../db/pool')
 const { requireAuth, optionalAuth } = require('../middleware/auth')
-const { canContact, getUser } = require('../utils/access')
+const { canContact, getUser, isTeamEmail, EARLY_ACCESS_HOURS, isPublicYet } = require('../utils/access')
+const { sendTeamNewPostEmail } = require('../utils/mailer')
 
 const TYPES = ['fsbo', 'buyer']
 const MAX_ACTIVE_POSTS = 3
@@ -17,7 +18,7 @@ const dec = (v) => { const n = parseFloat(String(v ?? '').replace(/[^\d.]/g, '')
 const shortName = (first, last) => `${first || ''} ${last ? last[0] + '.' : ''}`.trim() || 'Member'
 
 const PUBLIC_COLS = `b.id, b.listing_type, b.role, b.has_agent, b.title, b.address, b.city, b.zip, b.price, b.beds, b.baths,
-  b.living_sqft, b.property_type, b.target_area, b.budget, b.message, b.agents_ok, b.status, b.views, b.created_at,
+  b.living_sqft, b.property_type, b.target_area, b.budget, b.message, b.agents_ok, b.status, b.views, b.created_at, b.outcome,
   b.user_id, u.first_name, u.last_name, u.role AS poster_role`
 
 const toPublic = (r, viewerId) => ({
@@ -27,6 +28,9 @@ const toPublic = (r, viewerId) => ({
   livingSqft: r.living_sqft, propertyType: r.property_type,
   area: r.target_area, budget: r.budget, message: r.message, agentsOk: r.agents_ok,
   status: r.status, views: r.views, createdAt: r.created_at,
+  publicAt: new Date(new Date(r.created_at).getTime() + EARLY_ACCESS_HOURS * 3600 * 1000).toISOString(),
+  isPublic: isPublicYet(r.created_at),
+  outcome: viewerId && r.user_id === viewerId ? r.outcome : undefined,
   poster: shortName(r.first_name, r.last_name), posterRole: r.poster_role,
   mine: !!viewerId && r.user_id === viewerId,
 })
@@ -46,6 +50,12 @@ router.get('/', optionalAuth, async (req, res) => {
   try {
     const where = [`b.status = 'active'`]
     const params = []
+    /* New posts: team sees them right away, everyone else after the early-access window */
+    const viewer = req.user ? await getUser(req.user.id) : null
+    if (!isTeamEmail(viewer?.email)) {
+      params.push(EARLY_ACCESS_HOURS, req.user?.id || '00000000-0000-0000-0000-000000000000')
+      where.push(`(b.created_at <= NOW() - make_interval(hours => $${params.length - 1}::int) OR b.user_id = $${params.length}::uuid)`)
+    }
     if (TYPES.includes(req.query.type)) { params.push(req.query.type); where.push(`b.listing_type = $${params.length}`) }
     if (req.query.zip) { params.push(String(req.query.zip).slice(0, 5)); where.push(`b.zip = $${params.length}`) }
     const maxPrice = int(req.query.maxPrice)
@@ -85,12 +95,14 @@ router.get('/:id', optionalAuth, async (req, res) => {
     const r = await query(`SELECT ${PUBLIC_COLS} FROM board_listings b JOIN users u ON u.id = b.user_id WHERE b.id = $1 AND b.status <> 'removed'`, [req.params.id])
     const row = r.rows[0]
     if (!row) return res.status(404).json({ error: 'Post not found' })
+    const viewer = req.user ? await getUser(req.user.id) : null
+    if (row.user_id !== req.user?.id && !isTeamEmail(viewer?.email) && !isPublicYet(row.created_at)) return res.status(404).json({ error: 'This post is not public yet' })
     if (row.user_id !== req.user?.id && firstView(`${row.id}|${req.user?.id || req.ip}`)) {
       query('UPDATE board_listings SET views = views + 1 WHERE id = $1', [row.id]).catch(() => {})
       row.views += 1
     }
     let contact = { ok: false, reason: 'Sign in to send a message.' }
-    if (req.user) contact = await canContact(await getUser(req.user.id), { ...row })
+    if (req.user) contact = await canContact(viewer, { ...row })
     res.json({ listing: toPublic(row, req.user?.id), contact })
   } catch (e) {
     console.error('Board post failed:', e.message)
@@ -133,6 +145,8 @@ router.post('/', requireAuth, async (req, res) => {
       [req.user.id, type === 'fsbo' ? 'seller' : 'buyer', type, d.title, d.address, d.city, d.zip, d.price, d.beds, d.baths, d.living_sqft,
        d.property_type, d.target_area, d.budget, d.message, d.has_agent, d.agents_ok])
     query(`INSERT INTO audit_logs (user_id, action, resource, resource_id) VALUES ($1,'board_post','board_listings',$2)`, [req.user.id, r.rows[0].id]).catch(() => {})
+    /* Early access: tell the team right away */
+    sendTeamNewPostEmail({ id: r.rows[0].id, type, ...d }).catch(() => {})
     res.status(201).json({ id: r.rows[0].id })
   } catch (e) {
     console.error('Board post create failed:', e.message)
@@ -148,7 +162,12 @@ router.patch('/:id', requireAuth, async (req, res) => {
     if (!row) return res.status(404).json({ error: 'Post not found' })
     if (req.body.status) {
       if (!['active', 'paused', 'sold', 'removed'].includes(req.body.status)) return res.status(400).json({ error: 'Invalid status' })
-      await query('UPDATE board_listings SET status=$1, active=$2, updated_at=NOW() WHERE id=$3', [req.body.status, req.body.status === 'active', row.id])
+      const outcome = req.body.status === 'sold' && ['mo', 'elsewhere', 'unknown'].includes(req.body.outcome) ? req.body.outcome : null
+      await query(
+        `UPDATE board_listings SET status=$1, active=$2, updated_at=NOW(),
+                outcome = CASE WHEN $1 = 'sold' THEN COALESCE($4, outcome) ELSE outcome END,
+                closed_at = CASE WHEN $1 = 'sold' THEN COALESCE(closed_at, NOW()) ELSE closed_at END
+          WHERE id=$3`, [req.body.status, req.body.status === 'active', row.id, outcome])
       return res.json({ ok: true })
     }
     const d = readBody({ ...req.body, type: row.listing_type }, row.listing_type)

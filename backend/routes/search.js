@@ -13,7 +13,7 @@ const PAID_FIELDS = ['owner1', 'owner2', 'mailingAddr', 'mailingCity', 'mailingS
 
 async function applyPaywall(results, user) {
   const { alreadyOwned, normFolio } = require('./payments')
-  const admins = String(process.env.ADMIN_EMAILS || 'natibalma@gmail.com').toLowerCase().split(',').map(s => s.trim())
+  const admins = String(process.env.ADMIN_EMAILS || 'natibalma@gmail.com,natibalmare@gmail.com').toLowerCase().split(',').map(s => s.trim())
   const isAdmin = user && admins.includes(String(user.email || '').toLowerCase())
   for (const r of results) {
     if (!r || !r.folio) continue

@@ -7,6 +7,9 @@ const { requireAuth } = require('../middleware/auth')
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/mailer')
 
 const ROLES = ['buyer', 'seller', 'agent']
+const { agentsEnabled } = require('../utils/access')
+/* Roles a person can pick right now (agent opens when the brokerage is ready) */
+const openRoles = () => agentsEnabled() ? ROLES : ROLES.filter(r => r !== 'agent')
 const RESET_MINUTES = 15
 const RESET_MAX_ATTEMPTS = 5
 
@@ -31,7 +34,7 @@ async function startSession(req, userId) {
   return sid
 }
 
-const adminEmails = () => String(process.env.ADMIN_EMAILS || 'natibalma@gmail.com').toLowerCase().split(',').map(s => s.trim()).filter(Boolean)
+const adminEmails = () => String(process.env.ADMIN_EMAILS || 'natibalma@gmail.com,natibalmare@gmail.com').toLowerCase().split(',').map(s => s.trim()).filter(Boolean)
 const isAdmin = (email) => adminEmails().includes(String(email || '').toLowerCase())
 
 const publicUser = (user) => ({
@@ -43,7 +46,7 @@ const publicUser = (user) => ({
 router.post('/register', async (req, res) => {
   try {
     const { email, password, firstName, lastName, phone, role = 'buyer', needsAgent = true, smsOptIn = false } = req.body
-    const safeRole = ROLES.includes(role) ? role : 'buyer'
+    const safeRole = openRoles().includes(role) ? role : 'buyer'
     if (!email || !password || !firstName || !lastName)
       return res.status(400).json({ error: 'Required: email, password, firstName, lastName' })
     if (password.length < 8)
@@ -202,7 +205,7 @@ router.patch('/profile', requireAuth, async (req, res) => {
     const firstName = txt(b.firstName, cur.first_name), lastName = txt(b.lastName, cur.last_name)
     if (!firstName || !lastName) return res.status(400).json({ error: 'First and last name are required' })
     const phone = txt(b.phone, cur.phone, 30)
-    const role = ROLES.includes(b.role) ? b.role : cur.role
+    const role = openRoles().includes(b.role) ? b.role : cur.role
     const smsOptIn = b.smsOptIn === undefined ? cur.sms_opt_in : !!(b.smsOptIn && phone)
     const newlyOptedIn = smsOptIn && !cur.sms_opt_in
     await query(

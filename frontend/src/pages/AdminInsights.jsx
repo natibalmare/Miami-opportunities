@@ -25,6 +25,8 @@ export default function AdminInsights() {
   const [users, setUsers] = useState(null)
   const [q, setQ] = useState('')
   const [error, setError] = useState('')
+  const [note, setNote] = useState('')
+  const [busyId, setBusyId] = useState('')
 
   useEffect(() => {
     if (!user?.isAdmin) return
@@ -37,6 +39,13 @@ export default function AdminInsights() {
   }, [user, q])
 
   if (!user?.isAdmin) return <div style={{ padding: 40, color: '#7A8584' }}>This page is only available to the MO owner.</div>
+
+  const act = async (u, action, label) => {
+    if (action === 'sign_out' && !window.confirm(`Sign ${u.email} out of every device?`)) return
+    setBusyId(u.id + action); setNote('')
+    try { const r = await api.adminUserAction(u.id, action); setNote(r.message) } catch (e) { setNote(e.message) } finally { setBusyId('') }
+    if (action === 'mark_verified') api.adminUsers(q).then(r => setUsers(r.users)).catch(() => {})
+  }
   if (error) return <div className="alert alert-danger">{error}</div>
   if (!d) return <div style={{ padding: 30, color: '#9A9488' }}>Loading insights…</div>
 
@@ -44,6 +53,9 @@ export default function AdminInsights() {
   const fsbo = d.board.filter(b => b.listing_type === 'fsbo' && b.status === 'active').reduce((a, b) => a + b.n, 0)
   const buyers = d.board.filter(b => b.listing_type === 'buyer' && b.status === 'active').reduce((a, b) => a + b.n, 0)
   const views = d.board.reduce((a, b) => a + b.views, 0)
+  const early = d.board.filter(b => b.early && b.status === 'active').reduce((a, b) => a + b.n, 0)
+  const viaMo = d.board.filter(b => b.outcome === 'mo').reduce((a, b) => a + b.n, 0)
+  const closed = d.board.filter(b => b.status === 'sold').reduce((a, b) => a + b.n, 0)
   const H = { fontSize: 10.5, letterSpacing: 3, textTransform: 'uppercase', color: '#A8863E', fontWeight: 600, margin: '22px 0 10px' }
 
   return (
@@ -109,6 +121,8 @@ export default function AdminInsights() {
         <Tile label="FSBO posts live" value={fsbo} />
         <Tile label="Buyer posts live" value={buyers} />
         <Tile label="Board views" value={views} />
+        <Tile label="Early access now" value={early} sub="new posts only your team sees (first 24 h)" />
+        <Tile label="Deals through MO" value={viaMo} sub={`${closed} posts marked sold / found`} />
         <Tile label="Conversations" value={d.messaging.conversations} sub={`${d.messaging.messages} messages`} />
       </div>
 
@@ -116,10 +130,11 @@ export default function AdminInsights() {
       <div className="card">
         <div className="card-body" style={{ paddingBottom: 6 }}>
           <input className="input" style={{ maxWidth: 320 }} placeholder="Search name or email…" value={q} onChange={e => setQ(e.target.value)} />
+          {note && <div className="alert alert-info" style={{ marginTop: 10 }}>{note}</div>}
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table" style={{ width: '100%' }}>
-            <thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Plan</th><th>Joined</th><th>Last sign-in</th><th>Email</th><th>Text</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Plan</th><th>Joined</th><th>Last sign-in</th><th>Email</th><th>Text</th><th>Support</th></tr></thead>
             <tbody>
               {(users || []).map(u => (
                 <tr key={u.id}>
@@ -131,9 +146,15 @@ export default function AdminInsights() {
                   <td>{date(u.lastLogin)}</td>
                   <td>{u.emailOk ? '✓' : 'Opted out'}</td>
                   <td>{u.smsOk ? '✓' : '—'}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {!u.verified && <button className="btn btn-outline btn-sm" style={{ marginRight: 4 }} disabled={!!busyId} onClick={() => act(u, 'resend_verification')}>Resend code</button>}
+                    {!u.verified && <button className="btn btn-outline btn-sm" style={{ marginRight: 4 }} disabled={!!busyId} onClick={() => act(u, 'mark_verified')}>Mark verified</button>}
+                    <button className="btn btn-outline btn-sm" style={{ marginRight: 4 }} disabled={!!busyId} onClick={() => act(u, 'send_reset')}>Send password reset</button>
+                    <button className="btn btn-outline btn-sm" disabled={!!busyId} onClick={() => act(u, 'sign_out')}>Sign out</button>
+                  </td>
                 </tr>
               ))}
-              {users && users.length === 0 && <tr><td colSpan={8} style={{ color: '#9A9488' }}>No members found.</td></tr>}
+              {users && users.length === 0 && <tr><td colSpan={9} style={{ color: '#9A9488' }}>No members found.</td></tr>}
             </tbody>
           </table>
         </div>

@@ -6,7 +6,9 @@ import { api } from '../utils/api'
 import { SMS_CONSENT } from '../utils/consent'
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
-const ROLES = [['buyer', '🏠', 'Buyer / Investor'], ['seller', '📋', 'Seller'], ['agent', '🤝', 'Agent']]
+import { AGENTS_OPEN } from '../utils/features'
+
+const ROLES = [['buyer', '🏠', 'Buyer / Investor'], ['seller', '📋', 'Seller'], ['agent', '🤝', 'Agent']].filter(([v]) => AGENTS_OPEN || v !== 'agent')
 
 export default function AccountPage() {
   const { user, logout, refreshUser } = useAuth()
@@ -189,7 +191,7 @@ export default function AccountPage() {
               ) : (
                 <button className="btn btn-gold btn-sm" style={{ width: '100%' }} onClick={() => nav('/pricing')}>See Plans & Pricing →</button>
               )}
-              {role === 'agent' && !['agent', 'pro', 'business'].includes(status?.plan) && (
+              {AGENTS_OPEN && role === 'agent' && !['agent', 'pro', 'business'].includes(status?.plan) && (
                 <div style={{ fontSize: 12, color: '#8A6A2E', marginTop: 10 }}>To message FSBO sellers and buyers on the board, choose the Agent plan ($49/month).</div>
               )}
               <div style={{ fontSize: 10.5, color: '#9A9488', marginTop: 10 }}>Secure billing by Stripe.</div>

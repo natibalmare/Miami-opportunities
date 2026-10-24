@@ -63,7 +63,7 @@ module.exports.optionalAuth = async (req, res, next) => {
 /* Only MO administrators (ADMIN_EMAILS on Railway) */
 module.exports.requireAdmin = (req, res, next) => {
   module.exports.requireAuth(req, res, () => {
-    const admins = String(process.env.ADMIN_EMAILS || 'natibalma@gmail.com').toLowerCase().split(',').map(s => s.trim())
+    const admins = String(process.env.ADMIN_EMAILS || 'natibalma@gmail.com,natibalmare@gmail.com').toLowerCase().split(',').map(s => s.trim())
     if (!admins.includes(String(req.user?.email || '').toLowerCase())) return res.status(403).json({ error: 'Not available' })
     next()
   })

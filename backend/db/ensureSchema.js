@@ -112,6 +112,9 @@ async function ensureSchema() {
     `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS views INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
     `CREATE INDEX IF NOT EXISTS idx_board_status ON board_listings (status, listing_type, created_at DESC)`,
+    /* Did the seller find a buyer (or the buyer a home) through MO? */
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS outcome TEXT`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ`,
 
     // In-app messages (contact details stay private)
     `CREATE TABLE IF NOT EXISTS conversations (

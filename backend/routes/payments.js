@@ -187,6 +187,7 @@ async function syncSubscription(subId, fallbackUserId) {
 /* ── GET /api/payments/plans — public price list for the pricing UI ─────────── */
 router.get('/plans', (req, res) => {
   res.json({
+    agentsEnabled: process.env.AGENTS_ENABLED === 'on',
     single: { amount: SINGLE_REPORT.amount },
     plans: Object.entries(PLANS).map(([id, p]) => ({
       id, name: p.name, reports: p.reports, seats: p.seats, overage: p.overage,
@@ -270,6 +271,7 @@ router.post('/membership/checkout', requireAuth, async (req, res) => {
   try {
     const { plan, interval = 'month' } = req.body
     if (!PLANS[plan]) return res.status(400).json({ error: 'Plan must be investor, agent, pro, or business' })
+    if (plan === 'agent' && process.env.AGENTS_ENABLED !== 'on') return res.status(400).json({ error: 'The Agent plan opens soon.' })
     if (!['month', 'year'].includes(interval)) return res.status(400).json({ error: 'Interval must be month or year' })
     const priceId = process.env[PLANS[plan].prices[interval]]
     if (!priceId) return res.status(500).json({ error: 'This plan price is not configured' })

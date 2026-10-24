@@ -8,7 +8,7 @@ const { query } = require('../db/pool')
 const { requireAdmin } = require('../middleware/auth')
 const { ACTIVE } = require('../utils/access')
 const { PLANS } = require('./payments')
-const { sendCampaignEmails } = require('../utils/mailer')
+const { sendCampaignEmails, sendVerificationEmail, sendPasswordResetEmail } = require('../utils/mailer')
 
 router.use(requireAdmin)
 
@@ -48,7 +48,7 @@ router.get('/overview', async (req, res) => {
                FROM report_purchases WHERE status = 'completed'`),
       query(`SELECT action, COUNT(*)::int AS n FROM audit_logs WHERE created_at > NOW() - INTERVAL '30 days'
               AND action IN ('search','criteria_search','board_post') GROUP BY 1`),
-      query(`SELECT listing_type, status, COUNT(*)::int AS n, COALESCE(SUM(views),0)::int AS views FROM board_listings GROUP BY 1,2`),
+      query(`SELECT listing_type, status, COALESCE(outcome,'') AS outcome, (created_at > NOW() - INTERVAL '24 hours') AS early, COUNT(*)::int AS n, COALESCE(SUM(views),0)::int AS views FROM board_listings GROUP BY 1,2,3,4`),
       query(`SELECT (SELECT COUNT(*) FROM conversations)::int AS conversations, (SELECT COUNT(*) FROM messages)::int AS messages`),
       query(`SELECT COALESCE(SUM(amount),0) AS overage FROM overage_purchases WHERE status='completed'`).catch(() => ({ rows: [{ overage: 0 }] })),
     ])
@@ -78,6 +78,43 @@ router.get('/overview', async (req, res) => {
   } catch (e) {
     console.error('Admin overview failed:', e.message)
     res.status(500).json({ error: 'Insights unavailable' })
+  }
+})
+
+/* POST /api/admin/users/:id/action — support tools: resend_verification | send_reset | mark_verified | sign_out */
+router.post('/users/:id/action', async (req, res) => {
+  try {
+    const action = String(req.body.action || '')
+    const r = await query('SELECT id, email, first_name, email_verified FROM users WHERE id=$1', [req.params.id])
+    const u = r.rows[0]
+    if (!u) return res.status(404).json({ error: 'Member not found' })
+    let message
+    if (action === 'resend_verification') {
+      if (u.email_verified) return res.json({ message: 'This email is already verified.' })
+      const code = crypto.randomInt(100000, 1000000).toString()
+      await query('UPDATE users SET email_verify_code=$1, email_verify_expires=$2 WHERE id=$3', [code, new Date(Date.now() + 24 * 3600 * 1000), u.id])
+      const ok = await sendVerificationEmail(u.email, u.first_name, code)
+      message = ok === false ? 'The email service did not accept the message — check Resend.' : `New verification code sent to ${u.email} (valid 24 hours).`
+    } else if (action === 'send_reset') {
+      const code = crypto.randomInt(100000, 1000000).toString()
+      const hash = crypto.createHash('sha256').update(code).digest('hex')
+      await query('UPDATE users SET reset_code=$1, reset_expires=$2, reset_attempts=0 WHERE id=$3', [hash, new Date(Date.now() + 15 * 60 * 1000), u.id])
+      const ok = await sendPasswordResetEmail(u.email, u.first_name, code)
+      message = ok === false ? 'The email service did not accept the message — check Resend.' : `Password reset code sent to ${u.email} (valid 15 minutes).`
+    } else if (action === 'mark_verified') {
+      await query('UPDATE users SET email_verified=true, email_verify_code=NULL WHERE id=$1', [u.id])
+      message = `${u.email} is now marked verified.`
+    } else if (action === 'sign_out') {
+      await query('UPDATE users SET session_id=NULL WHERE id=$1', [u.id])
+      message = `${u.email} was signed out of every device.`
+    } else {
+      return res.status(400).json({ error: 'Unknown action' })
+    }
+    query(`INSERT INTO audit_logs (user_id, action, resource, resource_id) VALUES ($1,$2,'users',$3)`, [req.user.id, `admin_${action}`, u.id]).catch(() => {})
+    res.json({ message })
+  } catch (e) {
+    console.error('Admin action failed:', e.message)
+    res.status(500).json({ error: 'Action failed' })
   }
 })
 

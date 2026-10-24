@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../utils/AuthContext'
 import AuthModal from '../components/AuthModal'
 import { api } from '../utils/api'
+import { AGENTS_OPEN } from '../utils/features'
 
 const PLANS = [
   {
@@ -73,7 +74,7 @@ export default function PricingPage() {
       {error && <div className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 30 }}>
-        {PLANS.map(p => {
+        {PLANS.filter(p => AGENTS_OPEN || p.id !== 'agent').map(p => {
           const featured = p.id === 'pro'
           return (
             <div key={p.id} style={{ background: '#FFFFFF', border: `${featured ? 2 : 1}px solid ${featured ? '#C4A46B' : '#E0DCD0'}`, borderRadius: 12, padding: '22px 20px', display: 'flex', flexDirection: 'column', position: 'relative' }}>

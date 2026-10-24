@@ -21,6 +21,7 @@ export default function MyListings() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [authOpen, setAuthOpen] = useState(false)
+  const [closing, setClosing] = useState(null)
 
   const load = () => api.myListings().then(d => setItems(d.listings || [])).catch(() => setItems([]))
 
@@ -51,9 +52,9 @@ export default function MyListings() {
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 
-  const setStatus = async (id, status) => {
+  const setStatus = async (id, status, outcome) => {
     if (status === 'removed' && !window.confirm('Remove this post? Buyers will no longer see it.')) return
-    try { await api.updateListing(id, { status }); await load() } catch (e) { setError(e.message) }
+    try { await api.updateListing(id, outcome ? { status, outcome } : { status }); setClosing(null); await load() } catch (e) { setError(e.message) }
   }
 
   const edit = (l) => {
@@ -186,13 +187,28 @@ export default function MyListings() {
               </div>
               <div style={{ fontSize: 15, fontWeight: 600 }}>{l.type === 'fsbo' ? `${l.address} · ${money(l.price)}` : `${l.area} · ${l.budget}`}</div>
               <div style={{ fontSize: 12, color: '#7A8584', marginTop: 3 }}>{l.views} views · {l.inquiries} inquiries{l.unread ? ` · ${l.unread} unread` : ''}</div>
+              {l.status === 'active' && !l.isPublic && (
+                <div style={{ fontSize: 11.5, color: '#8A6A2E', marginTop: 4 }}>Being reviewed — goes public {new Date(l.publicAt).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+              )}
+              {l.status === 'sold' && l.outcome === 'mo' && <div style={{ fontSize: 11.5, color: '#2E7D6B', marginTop: 4 }}>Connected through MO 🎉</div>}
+              {closing === l.id && (
+                <div style={{ marginTop: 10, padding: 12, background: '#F5EDD8', borderRadius: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{l.type === 'fsbo' ? 'Congratulations! Did you find your buyer through MO?' : 'Congratulations! Did you find it through MO?'}</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <button className="btn btn-gold btn-sm" onClick={() => setStatus(l.id, 'sold', 'mo')}>Yes, through MO</button>
+                    <button className="btn btn-outline btn-sm" onClick={() => setStatus(l.id, 'sold', 'elsewhere')}>No, somewhere else</button>
+                    <button className="btn btn-outline btn-sm" onClick={() => setStatus(l.id, 'sold', 'unknown')}>Prefer not to say</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setClosing(null)}>Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
               {l.unread > 0 && <button className="btn btn-gold btn-sm" onClick={() => nav('/messages')}>Read messages</button>}
               <button className="btn btn-outline btn-sm" onClick={() => edit(l)}>Edit</button>
               {l.status === 'active' && <button className="btn btn-outline btn-sm" onClick={() => setStatus(l.id, 'paused')}>Pause</button>}
               {l.status === 'paused' && <button className="btn btn-outline btn-sm" onClick={() => setStatus(l.id, 'active')}>Reactivate</button>}
-              {l.status !== 'sold' && <button className="btn btn-outline btn-sm" onClick={() => setStatus(l.id, 'sold')}>{l.type === 'fsbo' ? 'Mark sold' : 'Found one'}</button>}
+              {l.status !== 'sold' && <button className="btn btn-outline btn-sm" onClick={() => setClosing(l.id)}>{l.type === 'fsbo' ? 'Mark sold' : 'Found one'}</button>}
               <button className="btn btn-outline btn-sm" style={{ color: '#B84040', borderColor: '#E8B0B0' }} onClick={() => setStatus(l.id, 'removed')}>Remove</button>
             </div>
           </div>

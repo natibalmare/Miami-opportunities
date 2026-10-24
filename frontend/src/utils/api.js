@@ -89,6 +89,7 @@ export const api = {
 
   adminOverview:  () => req('/api/admin/overview'),
   adminUsers:     (q = '') => req(`/api/admin/users?q=${encodeURIComponent(q)}`),
+  adminUserAction: (id, action) => req(`/api/admin/users/${id}/action`, { method: 'POST', body: { action } }),
   adminCampaigns: () => req('/api/admin/campaigns'),
   adminSaveSettings: (d) => req('/api/admin/settings', { method: 'PUT', body: d }),
   adminPreview:   (d) => req('/api/admin/campaigns/preview', { method: 'POST', body: d }),

@@ -120,4 +120,27 @@ async function sendCampaignEmails(recipients, subject, bodyText, footerAddress) 
   return { sent, failed }
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendNewMessageEmail, sendCampaignEmails }
+/* Early access alert to the owner/team when a new board post comes in */
+async function sendTeamNewPostEmail(post) {
+  const { isTeamEmail } = require('./access')
+  const to = [...new Set(String(process.env.ADMIN_EMAILS || 'natibalma@gmail.com,natibalmare@gmail.com').split(',').concat(String(process.env.TEAM_EMAILS || '').split(','))
+    .map(x => x.trim().toLowerCase()).filter(e => e && isTeamEmail(e)))]
+  if (!to.length) return false
+  const what = post.type === 'fsbo' ? `FSBO: ${post.address || ''}, ${post.city || ''} ${post.zip || ''} — $${Number(post.price || 0).toLocaleString()}` : `Buyer looking: ${post.target_area || ''} — ${post.budget || ''}`
+  try {
+    await resend.emails.send({
+      from: FROM, to,
+      subject: `New ${post.type === 'fsbo' ? 'FSBO listing' : 'buyer request'} — you have 24 hours first`,
+      html: shell(`
+        <p style="font-size: 14px;">A new post was just submitted on the MO board. It goes public in 24 hours — you and your team can see and contact it now.</p>
+        <div style="background: #F5EDD8; border-radius: 6px; padding: 14px 16px; font-size: 14px; margin: 14px 0;"><strong>${esc(what)}</strong><br>${esc(post.message || '').slice(0, 400)}</div>
+        <p><a href="${SITE()}/board?post=${post.id}" style="display: inline-block; background: #0A3D3A; color: #D9BC88; padding: 11px 20px; border-radius: 4px; text-decoration: none; font-size: 13px;">Open the post →</a></p>`),
+    })
+    return true
+  } catch (e) {
+    console.error('Resend error:', e.message)
+    return false
+  }
+}
+
+module.exports = { sendTeamNewPostEmail, sendVerificationEmail, sendPasswordResetEmail, sendNewMessageEmail, sendCampaignEmails }
