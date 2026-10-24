@@ -14,6 +14,18 @@ const EMPTY = {
 
 const COMING_SOON = ['Tax delinquent', 'Pre-foreclosure / lis pendens', 'Auction scheduled', 'Code violations', 'Open / expired permits', 'Probate']
 
+/* Ready-made lead lists built from the data MO has today */
+const LEAD_LISTS = [
+  { key: 'absentee', label: 'Absentee Owners', desc: 'Owner mails elsewhere', set: { occupancy: 'absentee', types: ['single-family', 'condo', 'multi-small'] } },
+  { key: 'out-of-state', label: 'Out-of-State Owners', desc: 'Owner lives outside Florida', set: { outOfState: true, types: ['single-family', 'condo', 'multi-small'] } },
+  { key: 'trust', label: 'Trust & Estate Owned', desc: 'Possible probate / estate', set: { ownerType: 'trust' } },
+  { key: 'llc', label: 'LLC / Company Owned', desc: 'Investor-held properties', set: { ownerType: 'company', types: ['single-family', 'multi-small'] } },
+  { key: 'landlords', label: 'Small Landlords', desc: 'Absentee 2–9 unit buildings', set: { occupancy: 'absentee', types: ['multi-small'] } },
+  { key: 'older', label: 'Older Homes', desc: 'Built before 1970, absentee', set: { maxYear: '1969', occupancy: 'absentee', types: ['single-family'] } },
+  { key: 'vacant-land', label: 'Vacant Land', desc: 'Residential lots', set: { types: ['vacant-res'] } },
+  { key: 'recent', label: 'Recently Sold', desc: 'Sold in the last 1–2 years', set: { recentSale: true, types: ['single-family', 'condo'] } },
+]
+
 const money = (n) => (n || n === 0) ? '$' + Number(n).toLocaleString() : '—'
 const sqft = (n) => n ? Number(n).toLocaleString() : '—'
 const date = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : '—'
@@ -50,6 +62,8 @@ export default function CriteriaSearch() {
   const nav = useNavigate()
   const [meta, setMeta] = useState(null)
   const [f, setF] = useState(EMPTY)
+  const [activeList, setActiveList] = useState('')
+  const [pendingRun, setPendingRun] = useState(false)
   const [res, setRes] = useState(null)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -71,6 +85,17 @@ export default function CriteriaSearch() {
   const toggle = (k, v) => setF(p => ({ ...p, [k]: p[k].includes(v) ? p[k].filter(x => x !== v) : [...p[k], v] }))
 
   const bedsAvailable = meta?.counties?.some(c => c.slug === 'miami-dade' && c.hasBedsBaths && f.counties.includes('miami-dade'))
+
+  /* A lead list sets its filters, then runs the search once the new filters are in place */
+  useEffect(() => {
+    if (pendingRun) { setPendingRun(false); run(1) }
+  }, [pendingRun, f]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const applyList = (list) => {
+    setActiveList(list.key)
+    setF(p => ({ ...EMPTY, counties: p.counties, sort: p.sort, ...list.set }))
+    setPendingRun(true)
+  }
 
   const run = async (pg = 1, signedIn = false) => {
     if (!user && !signedIn) { setAuthOpen(true); return }
@@ -115,6 +140,21 @@ export default function CriteriaSearch() {
         <div style={{ fontSize: 22, fontWeight: 300, letterSpacing: -0.5 }}>Criteria Search</div>
         <div style={{ fontSize: 12, color: '#9A9488', marginTop: 3 }}>
           Find properties by location, size, age, value, sale history and owner indicators across Miami-Dade, Broward and Palm Beach.
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ ...S.groupTitle, marginBottom: 8 }}>Lead Lists</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 8 }}>
+          {LEAD_LISTS.map(l => (
+            <button key={l.key} type="button" onClick={() => applyList(l)}
+              style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
+                background: activeList === l.key ? '#0A3D3A' : '#FFFFFF', color: activeList === l.key ? '#FAF8F2' : '#1A2828',
+                border: `1px solid ${activeList === l.key ? '#0A3D3A' : '#E0DCD0'}` }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600 }}>{l.label}</div>
+              <div style={{ fontSize: 10.5, opacity: 0.7, marginTop: 2 }}>{l.desc}</div>
+            </button>
+          ))}
         </div>
       </div>
 

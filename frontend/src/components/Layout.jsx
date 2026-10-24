@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useAuth } from '../utils/AuthContext.jsx'
 import AuthModal from './AuthModal'
 import AddressSearchInput from './AddressSearchInput'
+import { InfoBar, WelcomePopup, PrivacyCenter } from './SiteChrome'
 
 const NAV = [
   { path: '/',        label: 'Search',              section: 'Research' },
@@ -12,6 +13,7 @@ const NAV = [
   { path: '/map',     label: 'Map View',            section: null },
   { path: '/board',   label: 'Buyer / Seller Board', section: 'Connect' },
   { path: '/account', label: 'My Account',          section: null },
+  { path: '/about',   label: 'About MO',            section: null },
   { path: '/sources', label: 'Data Sources',        section: 'System' },
 ]
 
@@ -124,6 +126,7 @@ export default function Layout() {
 
       {/* MAIN */}
       <div style={S.main}>
+        <InfoBar onSignIn={() => setAuthOpen(true)} />
         {loc.pathname !== '/' && (
           <header style={S.topbar}>
             <form style={S.searchWrap} onSubmit={handleTopSearch}>
@@ -138,7 +141,6 @@ export default function Layout() {
               <button type="submit" style={S.topBtn}>Search →</button>
             </form>
             <div style={S.topR}>
-              <span style={S.mvp}>MVP v2.0</span>
               <div style={{ ...S.av, cursor: 'pointer' }} onClick={() => user ? go('/account') : setAuthOpen(true)}>{initials}</div>
             </div>
           </header>
@@ -153,6 +155,8 @@ export default function Layout() {
       </div>
 
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      <WelcomePopup onSignUp={() => setAuthOpen(true)} />
+      <PrivacyCenter />
     </div>
   )
 }

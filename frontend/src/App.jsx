@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import SearchPage from './pages/SearchPage'
 import ReportPage from './pages/ReportPage'
 import CriteriaSearch from './pages/CriteriaSearch'
+import AboutPage from './pages/AboutPage'
 import LeadsDashboard from './pages/LeadsDashboard'
 import MapView from './pages/MapView'
 import ContactBoard from './pages/ContactBoard'
@@ -17,6 +18,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<SearchPage />} />
           <Route path="/criteria" element={<CriteriaSearch />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/report" element={<ReportPage />} />
           <Route path="/leads" element={<LeadsDashboard />} />
           <Route path="/map" element={<MapView />} />
