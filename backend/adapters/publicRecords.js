@@ -77,7 +77,6 @@ const SOURCES = [
   {
     id: 'ftl_code', county: 16, name: 'Fort Lauderdale — code cases', kind: 'code', sync: true,
     url: 'https://gis.fortlauderdale.gov/arcgis/rest/services/CodeCaseTracker/CodeCase/MapServer/0', idField: 'PARCELID',
-    syncWhere: "INITDATE > DATE '2022-01-01'",
     map: (a) => ({ caseNum: txt(a.CASENUM), type: txt(a.CASETYPE), status: txt(a.CASESTATUS), open: isOpenStatus(a.CASESTATUS),
       opened: date(a.INITDATE), address: txt(a.SITEADDRESS) }),
   },
