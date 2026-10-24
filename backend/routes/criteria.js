@@ -161,7 +161,7 @@ router.get('/', requireAuth, async (req, res) => {
     }))
 
     const scores = await scoreMany(rowsR.rows.map(r => ({
-      countyNo: r.county_no, zip: r.phy_zip, useCode: r.dor_uc,
+      countyNo: r.county_no, parcelId: r.parcel_id, zip: r.phy_zip, useCode: r.dor_uc,
       value: r.just_value ? Number(r.just_value) : null, livingSqft: r.living_sqft ? Number(r.living_sqft) : null,
       yearBuilt: r.year_built, owner: r.own_name, ownerState: r.own_state,
       homestead: r.homestead, absentee: r.absentee, recentSale: !!r.sale_date1,

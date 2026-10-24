@@ -53,7 +53,7 @@ router.get('/parcels', async (req, res) => {
     )
 
     const scores = await scoreMany(r.rows.map(x => ({
-      countyNo: x.county_no, zip: x.phy_zip, useCode: x.dor_uc,
+      countyNo: x.county_no, parcelId: x.parcel_id, zip: x.phy_zip, useCode: x.dor_uc,
       value: x.just_value ? Number(x.just_value) : null, livingSqft: x.living_sqft ? Number(x.living_sqft) : null,
       yearBuilt: x.year_built, owner: x.own_name, ownerState: x.own_state,
       homestead: x.homestead, absentee: x.absentee, recentSale: !!x.sale_date1,

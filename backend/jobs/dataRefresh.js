@@ -7,6 +7,7 @@ const { COUNTIES } = require('../config/counties')
 const { findLatestFile, importCounty } = require('../adapters/fdorRoll')
 const { enrichMiamiDade } = require('../adapters/mdpaEnrich')
 const { findLatestPinFile, importPins } = require('../adapters/fdorPins')
+const publicRecords = require('../adapters/publicRecords')
 
 const LOCK_KEY = 778899
 /* Railway Hobby volumes max out at 5 GB — stop loading well before the disk fills */
@@ -80,6 +81,8 @@ async function runOnce() {
         console.error(`[data] ${county.name}: refresh error —`, e.message)
       }
     }
+    /* County & city records (code cases, liens, violations) — small, refreshed every run */
+    try { await publicRecords.syncAll() } catch (e) { console.error('[records] sync error —', e.message) }
   } finally {
     await lockClient.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {})
     lockClient.release()

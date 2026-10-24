@@ -82,6 +82,9 @@ export const api = {
   sendMessage:       (id, body) => req(`/api/messages/${id}`, { method: 'POST', body: { body } }),
   unreadCount:       () => req('/api/messages/unread-count'),
 
+  ownerContact: (d) => req('/api/owner/contact', { method: 'POST', body: d }),
+  countyRecords: (county, parcel) => req(`/api/records/${county}/${encodeURIComponent(parcel)}`),
+
   updateProfile: (d) => req('/api/auth/profile', { method: 'PATCH', body: d }),
 
   adminOverview:  () => req('/api/admin/overview'),

@@ -118,6 +118,7 @@ async function enrichAndScore(results) {
   if (!scorable.length) return results
   const scores = await scoreMany(scorable.map(r => ({
     countyNo: r.countyNo || (r.county === 'Miami-Dade' ? 23 : null),
+    parcelId: r.parcelId || r.folio,
     zip: String(r.zip || '').slice(0, 5),
     useCode: r.useCode ?? null,
     value: r.assessedValue,

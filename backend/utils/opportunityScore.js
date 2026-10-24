@@ -85,6 +85,16 @@ function scoreProperty(p, zipPpsf) {
     else if (ratio > 1.4) add(-5, 'Assessed above similar properties in the ZIP')
   }
 
+  /* County / city records (code cases, liens, building violations) */
+  const f = p.records
+  if (f) {
+    if (f.unsafe) add(20, 'Unsafe structure case on record')
+    else if (f.bv > 0) add(12, 'Open building violation')
+    if (f.liens > 0) add(15, 'Code enforcement lien recorded')
+    if (f.code > 0) add(10, 'Open code compliance case')
+    if (f.recert > 0) add(8, 'Building recertification not completed')
+  }
+
   if (p.recentSale) add(-10, 'Sold in the last 1–2 years')
 
   score = Math.max(0, Math.min(100, Math.round(score)))
@@ -95,12 +105,22 @@ function scoreProperty(p, zipPpsf) {
 function financeability(p) {
   const yb = Number(p.yearBuilt)
   if (p.useCode === 0 || p.useCode === 10) return 'cash-only'
+  if (p.records?.unsafe) return 'cash-only'
+  if (p.records && (p.records.bv > 0 || p.records.liens > 0)) return 'maybe-203k'
   if (yb && yb < 1960) return 'maybe-203k'
   if (yb) return 'maybe'
   return null
 }
 
 async function scoreMany(items) {
+  /* Attach county-record flags (code cases, liens, violations) when the parcel is known */
+  try {
+    const { flagsFor } = require('../adapters/publicRecords')
+    const flags = await flagsFor(items.map(p => ({ countyNo: p.countyNo, parcelId: p.parcelId })))
+    for (const p of items) {
+      if (p.countyNo && p.parcelId) p.records = flags.get(`${p.countyNo}|${String(p.parcelId).replace(/\D/g, '')}`) || null
+    }
+  } catch { /* scoring still works without them */ }
   const keys = [...new Set(items
     .filter(p => p.countyNo && p.zip && p.useCode !== null && p.useCode !== undefined)
     .map(p => `${p.countyNo}|${String(p.zip).slice(0, 5)}|${p.useCode}`))]
