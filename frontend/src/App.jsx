@@ -6,6 +6,7 @@ import SearchPage from './pages/SearchPage'
 import ReportPage from './pages/ReportPage'
 import CriteriaSearch from './pages/CriteriaSearch'
 import AboutPage from './pages/AboutPage'
+import CalculatorsPage from './pages/CalculatorsPage'
 import LeadsDashboard from './pages/LeadsDashboard'
 const MapView = lazy(() => import('./pages/MapView'))
 import ContactBoard from './pages/ContactBoard'
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/account" element={<AccountPage />} />
           <Route path="/sources" element={<DataSources />} />
           <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/calculators" element={<CalculatorsPage />} />
           <Route path="/my-listings" element={<MyListings />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/admin" element={<AdminInsights />} />

@@ -351,7 +351,7 @@ export default function ReportPage() {
 
       <div className="card" style={{ borderRadius: '0 0 10px 10px' }}>
         <div className="card-body">
-          {!unlocked && !isSample && tab !== 'Overview' ? (
+          {!unlocked && !isSample && !['Overview', 'Investment'].includes(tab) ? (
             <div style={{ textAlign: 'center', padding: '40px 20px' }}>
               <div style={{ fontSize: 28, marginBottom: 8 }}>🔒</div>
               <div style={{ fontSize: 16, fontWeight: 400, marginBottom: 6 }}>{tab} is part of the full report</div>

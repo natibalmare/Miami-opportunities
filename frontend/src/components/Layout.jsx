@@ -14,6 +14,7 @@ const NAV = [
   { path: '/map',      label: 'Map View',             section: null },
   { path: '/leads',    label: 'Lead Dashboard',       section: null },
   { path: '/report',   label: 'Property Report',      section: null },
+  { path: '/calculators', label: 'Calculators',       section: null },
   { path: '/board',    label: 'Buyer / Seller Board', section: 'Connect' },
   { path: '/my-listings', label: 'My Listings',       section: null, auth: true },
   { path: '/messages', label: 'Messages',             section: null, auth: true },

@@ -43,13 +43,14 @@ function Stat({ label, value, color }) {
 }
 
 export default function InvestmentCalculator({ property }) {
-  const startPrice = Math.round(Number(property?.valuation?.asIsEstimate || property?.tax?.assessedValue || 0)) || ''
+  const assessed = Math.round(Number(property?.tax?.assessedValue || property?.assessedValue || 0)) || null
   const startBeds = Math.min(4, Math.max(0, Number(property?.beds) || 3))
+  const [comps, setComps] = useState(null)
 
   const [rates, setRates] = useState(null)
   const [rents, setRents] = useState(null)
   const [f, setF] = useState({
-    price: String(startPrice), down: '20', rate: '', term: '30', closing: '3',
+    price: '', down: '20', rate: '', term: '30', closing: '3',
     beds: String(startBeds), rent: '', taxPct: '2.0', insurance: '', hoa: '0',
     vacancy: '5', mgmt: '8', maint: '5', repairs: '0',
   })
@@ -68,13 +69,24 @@ export default function InvestmentCalculator({ property }) {
     api.getRents(zip).then(r => setRents(r)).catch(() => setRents(null))
   }, [property?.zip])
 
-  /* Fill rent from HUD benchmark when it arrives or bedrooms change (unless the user typed their own) */
-  const [rentTouched, setRentTouched] = useState(false)
+  /* Rent stays blank for the person to enter — there is no reliable rental comparable data yet.
+     The area benchmark is shown as a reference only. */
+  const setRentTouched = () => {}
+
+  /* Value: filled only from 3+ recent comparable sales nearby; otherwise left blank */
+  const [priceTouched, setPriceTouched] = useState(false)
   useEffect(() => {
-    if (rentTouched || !rents?.rents) return
-    const b = Math.min(4, Math.max(0, Math.round(num(f.beds))))
-    if (rents.rents[b]) setF(p => ({ ...p, rent: String(rents.rents[b]) }))
-  }, [rents, f.beds, rentTouched])
+    setComps(null)
+    const county = property?.countyNo, parcel = property?.folio
+    if (!county || !parcel) return
+    let off = false
+    api.getComps(county, parcel).then(c => {
+      if (off) return
+      setComps(c)
+      if (c.estimate && !priceTouched) setF(p => ({ ...p, price: String(c.estimate.value) }))
+    }).catch(() => { if (!off) setComps({ comps: [], estimate: null, reason: 'Comparable sales are temporarily unavailable.' }) })
+    return () => { off = true }
+  }, [property?.countyNo, property?.folio])
 
   /* Default insurance ≈ 1% of price per year (Florida); user can change */
   useEffect(() => {
@@ -118,7 +130,8 @@ export default function InvestmentCalculator({ property }) {
     <div>
       <div className="gold-rule"><div className="gold-rule-line" /><div className="gold-rule-text">Mortgage Calculator</div><div className="gold-rule-line rev" /></div>
       <div style={S.grid}>
-        <Field label="Offer / purchase price" suffix="$" value={f.price} onChange={set('price')} hint={startPrice ? `Assessed value ${money(startPrice)}` : null} />
+        <Field label="Offer / purchase price" suffix="$" value={f.price} onChange={(v) => { setPriceTouched(true); set('price')(v) }}
+          hint={comps?.estimate ? `Comparable sales: ${money(comps.estimate.low)} – ${money(comps.estimate.high)}` : assessed ? `Enter a price · assessed value ${money(assessed)} (tax value, not market)` : 'Enter a price'} />
         <Field label="Down payment" suffix="%" value={f.down} onChange={set('down')} hint={money(r.downAmt)} />
         <Field label="Interest rate" suffix="%" value={f.rate} onChange={set('rate')} hint={rates ? `This week's avg: ${rates.rate30}% (30-yr) · ${rates.rate15}% (15-yr)` : 'Loading this week’s rate…'} />
         <label style={S.field}>
@@ -136,6 +149,35 @@ export default function InvestmentCalculator({ property }) {
       </div>
       {rates && <div style={S.note}>Rate: {rates.source}, week of {rates.asOf}. Your actual rate depends on credit, loan type and lender — confirm with a licensed lender.</div>}
 
+      {comps && (
+        <>
+          <div className="gold-rule" style={{ marginTop: 22 }}><div className="gold-rule-line" /><div className="gold-rule-text">Comparable Sales</div><div className="gold-rule-line rev" /></div>
+          {comps.estimate ? (
+            <div style={{ ...S.grid, marginBottom: 10 }}>
+              <Stat label="Estimated value" value={money(comps.estimate.value)} />
+              <Stat label="Range" value={`${money(comps.estimate.low)} – ${money(comps.estimate.high)}`} />
+              <Stat label="Price per sq ft" value={money(comps.estimate.ppsf)} />
+            </div>
+          ) : <div className="alert alert-info" style={{ marginBottom: 10 }}>{comps.reason || 'Not enough comparable sales — enter your own value.'}</div>}
+          {comps.comps?.length > 0 && (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table">
+                <thead><tr><th>Address</th><th>Sold</th><th>Price</th><th>Sq ft</th><th>$/sq ft</th><th>Bd/Ba</th><th>Built</th><th>Miles</th></tr></thead>
+                <tbody>
+                  {comps.comps.map((c, i) => (
+                    <tr key={i}>
+                      <td>{c.address}</td><td>{c.saleDate ? c.saleDate.slice(0, 7) : '—'}</td><td>{money(c.salePrice)}</td>
+                      <td>{c.sqft?.toLocaleString()}</td><td>{money(c.ppsf)}</td><td>{c.beds ?? '—'}/{c.baths ?? '—'}</td><td>{c.yearBuilt || '—'}</td><td>{c.distance}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div style={S.note}>Recent recorded sales of similar properties within {comps.radiusMiles || 1} mile, from county records (sold month shown). An estimate, not an appraisal — condition and upgrades are not known.</div>
+        </>
+      )}
+
       <div className="gold-rule" style={{ marginTop: 22 }}><div className="gold-rule-line" /><div className="gold-rule-text">Rental Income &amp; Return</div><div className="gold-rule-line rev" /></div>
       <div style={S.grid}>
         <label style={S.field}>
@@ -145,7 +187,7 @@ export default function InvestmentCalculator({ property }) {
           </select>
         </label>
         <Field label="Monthly rent" suffix="$" value={f.rent} onChange={(v) => { setRentTouched(true); set('rent')(v) }}
-          hint={rents?.rents ? `Area rent benchmark (${rents.zip}): ${money(rents.rents[Math.min(4, Math.max(0, Math.round(num(f.beds))))])}` : 'Enter expected rent'} />
+          hint={rents?.rents ? `Enter rent · area benchmark (${rents.zip}): ${money(rents.rents[Math.min(4, Math.max(0, Math.round(num(f.beds))))])} (reference only)` : 'Enter expected rent'} />
         <Field label="Property tax" suffix="% of price / yr" value={f.taxPct} onChange={set('taxPct')} hint="New owners lose the seller's homestead cap — ~2% is a common estimate" />
         <Field label="Insurance" suffix="$ / yr" value={f.insurance} onChange={set('insurance')} hint="Get a real quote — Florida rates vary widely" />
         <Field label="HOA" suffix="$ / mo" value={f.hoa} onChange={set('hoa')} />

@@ -39,6 +39,7 @@ export const api = {
     req(`/api/search?q=${encodeURIComponent(q)}&type=${type}`),
 
   getRates: () => req('/api/market/rates'),
+  getComps: (county, parcel) => req(`/api/market/comps?county=${county}&parcel=${encodeURIComponent(parcel)}`),
   getRents: (zip) => req(`/api/market/rents/${encodeURIComponent(zip)}`),
   getCriteriaMeta: () => req('/api/criteria/meta'),
   mapAreas: (q) => req(`/api/map/areas?q=${encodeURIComponent(q)}`),
