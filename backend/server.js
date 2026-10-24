@@ -23,6 +23,7 @@ const messagesRoutes  = require('./routes/messages')
 const adminRoutes     = require('./routes/admin')
 const { ensureSchema } = require('./db/ensureSchema')
 const { startDataRefresh } = require('./jobs/dataRefresh')
+const { startProbe } = require('./jobs/probe')
 
 const app = express()
 /* Railway sits in front of the app — use the visitor's real IP for rate limits */
@@ -95,4 +96,5 @@ ensureSchema()
   .finally(() => {
     app.listen(PORT, () => console.log(`MO Miami backend v2.0 running on :${PORT}`))
     startDataRefresh()
+    startProbe()
   })
