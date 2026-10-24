@@ -29,6 +29,11 @@ const PLANS = {
 const ACTIVE_STATUSES = ['active', 'trialing', 'past_due']
 
 const normFolio = (f) => String(f || '').replace(/\D/g, '')
+/* Where to send the buyer back after checkout: the search they were on (e.g. a Broward parcel key) */
+const returnQuery = (q, folio) => {
+  const s = String(q || '').trim()
+  return encodeURIComponent(s && s.length <= 120 ? s : folio)
+}
 const frontend = () => (process.env.FRONTEND_URL || '').replace(/\/$/, '')
 
 /* Find plan + interval from a Stripe price ID */
@@ -238,8 +243,8 @@ router.post('/checkout', requireAuth, async (req, res) => {
       line_items: [{ price: process.env[SINGLE_REPORT.envKey], quantity: 1 }],
       metadata: { type: 'report_single', folio, user_id: req.user.id },
       payment_intent_data: { metadata: { type: 'report_single', folio, user_id: req.user.id } },
-      success_url: `${frontend()}/report?q=${folio}&paid=true`,
-      cancel_url: `${frontend()}/report?q=${folio}&canceled=true`,
+      success_url: `${frontend()}/report?q=${returnQuery(req.body.returnQ, folio)}&paid=true`,
+      cancel_url: `${frontend()}/report?q=${returnQuery(req.body.returnQ, folio)}&canceled=true`,
     })
 
     await query(
@@ -370,8 +375,8 @@ router.post('/overage/checkout', requireAuth, async (req, res) => {
       }],
       metadata: { type: 'overage', folio, user_id: req.user.id, usage_period_id: period.id },
       payment_intent_data: { metadata: { type: 'overage', folio, user_id: req.user.id } },
-      success_url: `${frontend()}/report?q=${folio}&paid=true`,
-      cancel_url: `${frontend()}/report?q=${folio}&canceled=true`,
+      success_url: `${frontend()}/report?q=${returnQuery(req.body.returnQ, folio)}&paid=true`,
+      cancel_url: `${frontend()}/report?q=${returnQuery(req.body.returnQ, folio)}&canceled=true`,
     })
 
     await query(
@@ -487,3 +492,5 @@ router.get('/portal', requireAuth, async (req, res) => {
 module.exports = router
 module.exports.PLANS = PLANS
 module.exports.SINGLE_REPORT = SINGLE_REPORT
+module.exports.alreadyOwned = alreadyOwned
+module.exports.normFolio = normFolio

@@ -9,7 +9,7 @@ const PLAN_CARDS = [
 
 const money = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })
 
-export default function PaymentModal({ folio, address, onClose, onSuccess }) {
+export default function PaymentModal({ folio, address, returnQ, onClose, onSuccess }) {
   const [status, setStatus] = useState(null)
   const [loadingStatus, setLoadingStatus] = useState(true)
   const [busy, setBusy] = useState('')
@@ -49,8 +49,8 @@ export default function PaymentModal({ folio, address, onClose, onSuccess }) {
     }
   })
 
-  const buyOverage = () => run('overage', async () => goTo(await api.checkoutOverage(folio)))
-  const buySingle  = () => run('single', async () => goTo(await api.checkoutReport(folio)))
+  const buyOverage = () => run('overage', async () => goTo(await api.checkoutOverage(folio, returnQ)))
+  const buySingle  = () => run('single', async () => goTo(await api.checkoutReport(folio, returnQ)))
   const subscribe  = (plan) => run(plan, async () => goTo(await api.checkoutMembership(plan, billing)))
 
   const isMember = status && status.plan && status.plan !== 'free'

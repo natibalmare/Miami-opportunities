@@ -13,7 +13,8 @@ function mapMdpaToProperty(r) {
     clerk: 'https://www.miamidadeclerk.gov',
     foreclosure: 'https://www.miamidade.realforeclose.com',
   }
-  const owner1 = r.owner1 || 'Unknown'
+  const LOCK = '🔒 Members only — unlock to view'
+  const owner1 = r.locked ? LOCK : (r.owner1 || 'Unknown')
   const mailing = [r.mailingAddr, r.mailingCity, r.mailingState, r.mailingZip].filter(Boolean).join(', ')
   const matchesProp = typeof r.absentee === 'boolean'
     ? !r.absentee
@@ -34,6 +35,7 @@ function mapMdpaToProperty(r) {
     livingArea: r.livingArea,
     lotSize: r.lotSize,
     zoning: r.zoning,
+    locked: !!r.locked,
     score: r.score ?? null,
     scoreLabel: r.scoreLabel || null,
     scoreFactors: r.scoreFactors || [],
@@ -41,7 +43,7 @@ function mapMdpaToProperty(r) {
     owner: {
       name: owner1,
       type: /LLC|INC|CORP|LTD/i.test(owner1) ? 'LLC' : /TRUST|\bTR\b|ESTATE/i.test(owner1) ? 'Trust' : 'Individual',
-      mailing: mailing || 'N/A',
+      mailing: r.locked ? LOCK : (mailing || 'N/A'),
       matchesProp,
       homestead: typeof r.homestead === 'boolean' ? r.homestead : null,
       occupancy,
@@ -128,6 +130,8 @@ export default function ReportPage() {
   const [notFound, setNotFound] = useState(false)
   const [tab, setTab] = useState('Overview')
   const [unlocked, setUnlocked] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const isSample = params.get('sample') === '1'
   const [authOpen, setAuthOpen] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
   const [collapsed, setCollapsed] = useState({})
@@ -167,7 +171,7 @@ export default function ReportPage() {
 
     run()
     return () => { cancelled = true }
-  }, [q, params.get('sample')])
+  }, [q, params.get('sample'), reloadKey])
 
   /* Is this report already unlocked for the signed-in user?
      After a Stripe payment (?paid=true) keep checking briefly while the payment confirms. */
@@ -189,6 +193,11 @@ export default function ReportPage() {
     check()
     return () => { cancelled = true; if (timer) clearTimeout(timer) }
   }, [user, folioForAccess, paidReturn])
+
+  /* Paid details come from the server only after unlocking — reload once access is confirmed */
+  useEffect(() => {
+    if (unlocked && prop?.locked) setReloadKey(k => k + 1)
+  }, [unlocked, prop?.locked])
 
   const scoreColor = (s) => s >= 76 ? '#B84040' : s >= 51 ? '#A88C38' : s >= 26 ? '#8C6010' : '#9A9488'
   const toggle = (k) => setCollapsed(p => ({ ...p, [k]: !p[k] }))
@@ -304,6 +313,7 @@ export default function ReportPage() {
                 {(p.scoreFactors || []).slice(0, 5).map((f, i) => (
                   <div key={i}>{f.points > 0 ? '▲' : f.points < 0 ? '▼' : '•'} {f.label}</div>
                 ))}
+                {p.locked && <div style={{ color: '#A8863E', marginTop: 2 }}>🔒 Unlock the report to see what drives this score</div>}
                 {p.scoreFactors && <div style={{ fontSize: 10, color: '#9AA4A3', marginTop: 4 }}>Preliminary — tax, lien and foreclosure indicators will be added. Final opportunity depends on the seller and negotiation.</div>}
               </div>
             </div>
@@ -339,6 +349,14 @@ export default function ReportPage() {
 
       <div className="card" style={{ borderRadius: '0 0 10px 10px' }}>
         <div className="card-body">
+          {!unlocked && !isSample && tab !== 'Overview' ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>🔒</div>
+              <div style={{ fontSize: 16, fontWeight: 400, marginBottom: 6 }}>{tab} is part of the full report</div>
+              <div style={{ fontSize: 12.5, color: '#9A9488', marginBottom: 16 }}>Unlock this property with a membership report or a single $15 report.</div>
+              <button className="btn btn-gold" onClick={() => user ? setPayOpen(true) : setAuthOpen(true)}>Unlock Full Report</button>
+            </div>
+          ) : (<>
 
           {/* ── OVERVIEW ────────────────────────────────────────────────── */}
           {tab === 'Overview' && (
@@ -365,10 +383,10 @@ export default function ReportPage() {
                   <DataRow label="Current Owner" value={p.owner?.name} />
                   <DataRow label="Mailing Address" value={p.owner?.mailing} />
                   <DataRow label="Mail = Property?" value={p.owner?.matchesProp ? 'Yes' : 'No — Different Address'} color={p.owner?.matchesProp ? 'green' : 'red'} />
-                  <DataRow label="Homestead Exemption" value={p.owner?.homestead ? 'Active' : 'None'} color={p.owner?.homestead ? 'green' : 'red'} />
+                  <DataRow label="Homestead Exemption" value={p.locked ? '🔒 Members only' : p.owner?.homestead ? 'Active' : p.owner?.homestead === false ? 'None' : 'Unknown'} color={p.locked ? '' : p.owner?.homestead ? 'green' : 'red'} />
                 </div>
                 <div>
-                  <DataRow label="Occupancy Status" value={p.owner?.occupancy === 'absentee-owner' ? 'Absentee Owner' : p.owner?.occupancy === 'owner-occupied' ? 'Owner Occupied' : 'Unknown'} color={p.owner?.occupancy === 'absentee-owner' ? 'red' : ''} />
+                  <DataRow label="Occupancy Status" value={p.locked ? '🔒 Members only' : p.owner?.occupancy === 'absentee-owner' ? 'Absentee Owner' : p.owner?.occupancy === 'owner-occupied' ? 'Owner Occupied' : 'Unknown'} color={p.owner?.occupancy === 'absentee-owner' ? 'red' : ''} />
                   <DataRow label="Owner Type" value={p.owner?.type} />
                   <DataRow label="Zoning" value={p.zoning || 'N/A'} />
                   <DataRow label="Property Type" value={p.propertyType} />
@@ -381,7 +399,7 @@ export default function ReportPage() {
                 <div>
                   <strong>Possible Indicators Only</strong> — Do not assume vacancy without field verification.
                   <ul style={{ paddingLeft: 18, marginTop: 6, fontSize: 11.5 }}>
-                    {!p.owner?.homestead && <li>No homestead exemption on file</li>}
+                    {!p.locked && p.owner?.homestead === false && <li>No homestead exemption on file</li>}
                     {!p.owner?.matchesProp && <li>Owner mailing address does not match property</li>}
                     {p.tax?.delinquent && <li>Tax delinquency detected — {p.tax?.priorYearDelinquent ? '2+ years' : 'current year'}</li>}
                     {p.codeViolations?.length > 0 && <li>{p.codeViolations.length} open code violation{p.codeViolations.length > 1 ? 's' : ''} on record</li>}
@@ -685,12 +703,12 @@ export default function ReportPage() {
 
           {/* ── INVESTMENT ──────────────────────────────────────────────── */}
           {tab === 'Investment' && <InvestmentCalculator property={p} />}
-
+          </>)}
         </div>
       </div>
 
       {/* ── PAYWALL ───────────────────────────────────────────────────────── */}
-      {!unlocked && (
+      {!unlocked && !isSample && (
         <div className="paywall" style={{ borderRadius: 10, marginTop: 12 }}>
           <div className="paywall-text">
             <span className="paywall-strong">Unlock the Full Intelligence Report</span>
@@ -708,7 +726,7 @@ export default function ReportPage() {
       )}
 
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} afterLogin={() => setPayOpen(true)} />}
-      {payOpen && <PaymentModal folio={p.folio} address={`${p.address}, ${p.city} ${p.state}`} onClose={() => setPayOpen(false)} onSuccess={() => { setPayOpen(false); setUnlocked(true) }} />}
+      {payOpen && <PaymentModal folio={p.folio} returnQ={q} address={`${p.address}, ${p.city} ${p.state}`} onClose={() => setPayOpen(false)} onSuccess={() => { setPayOpen(false); setUnlocked(true) }} />}
     </div>
   )
 }

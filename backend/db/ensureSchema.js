@@ -1,3 +1,5 @@
+const fs = require('fs')
+const path = require('path')
 const { query } = require('./pool')
 
 /* Adds tables and columns the app needs if they are missing.
@@ -83,6 +85,15 @@ async function ensureSchema() {
       console.log('[data] county property table emptied (DATA_RESET=parcels)')
     } catch (e) {
       console.error('[data] reset failed:', e.message)
+    }
+  }
+
+  /* Billing and password-recovery migrations — written to be safe to run every start */
+  for (const file of ['003_usage_billing.sql', '004_payments_and_reset.sql']) {
+    try {
+      await query(fs.readFileSync(path.join(__dirname, 'migrations', file), 'utf8'))
+    } catch (e) {
+      console.error(`Migration ${file} failed:`, e.message)
     }
   }
 

@@ -56,10 +56,10 @@ export const api = {
   getPlans:           () => req('/api/payments/plans'),
   getBillingStatus:   () => req('/api/payments/status'),
   getAccess:          (folio) => req(`/api/payments/access/${encodeURIComponent(folio)}`),
-  checkoutReport:     (folio) => req('/api/payments/checkout', { method: 'POST', body: { folio } }),
+  checkoutReport:     (folio, returnQ) => req('/api/payments/checkout', { method: 'POST', body: { folio, returnQ } }),
   checkoutMembership: (plan, interval = 'month') => req('/api/payments/membership/checkout', { method: 'POST', body: { plan, interval } }),
   unlockReport:       (folio) => req('/api/payments/unlock', { method: 'POST', body: { folio } }),
-  checkoutOverage:    (folio) => req('/api/payments/overage/checkout', { method: 'POST', body: { folio } }),
+  checkoutOverage:    (folio, returnQ) => req('/api/payments/overage/checkout', { method: 'POST', body: { folio, returnQ } }),
   getBillingPortal:   () => req('/api/payments/portal'),
 
   getLeads:    () => req('/api/leads'),

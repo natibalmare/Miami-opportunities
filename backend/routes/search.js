@@ -5,6 +5,29 @@ const mdpa = require('../adapters/mdpa')
 const { COUNTIES } = require('../config/counties')
 const { findParcel, parcelToReport } = require('./criteria')
 const { scoreMany } = require('../utils/opportunityScore')
+const { pool } = require('../db/pool')
+
+/* Details reserved for unlocked (paid) reports */
+const PAID_FIELDS = ['owner1', 'owner2', 'mailingAddr', 'mailingCity', 'mailingState', 'mailingZip',
+  'homestead', 'absentee', 'lastSalePrice', 'lastSaleDate', 'scoreFactors', 'links']
+
+async function applyPaywall(results, user) {
+  const { alreadyOwned, normFolio } = require('./payments')
+  const admins = String(process.env.ADMIN_EMAILS || 'natibalma@gmail.com').toLowerCase().split(',').map(s => s.trim())
+  const isAdmin = user && admins.includes(String(user.email || '').toLowerCase())
+  for (const r of results) {
+    if (!r || !r.folio) continue
+    let owned = !!isAdmin
+    if (!owned && user) {
+      try { owned = await alreadyOwned(pool, user.id, normFolio(r.folio)) } catch { owned = false }
+    }
+    if (!owned) {
+      for (const f of PAID_FIELDS) delete r[f]
+      r.locked = true
+    }
+  }
+  return results
+}
 
 function detectType(q) {
   const c = q.trim()
@@ -198,7 +221,10 @@ router.get('/', optionalAuth, async (req, res) => {
         [req.user.id, type, q.trim()]).catch(() => {})
     }
 
-    if (source !== 'demo') await enrichAndScore(results)
+    if (source !== 'demo') {
+      await enrichAndScore(results)
+      await applyPaywall(results, req.user)
+    }
 
     res.json({ query: q, type, count: results.length, results, source })
   } catch (e) {
