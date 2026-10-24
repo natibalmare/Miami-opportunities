@@ -265,8 +265,8 @@ async function flagsFor(pairs) {
         const o = await query(
           `SELECT op.parcel_id,
                   COUNT(*) FILTER (WHERE d.doc_type = 'LP')::int AS lp,
-                  COUNT(*) FILTER (WHERE d.doc_type IN ('FJ','CFJ','J'))::int AS judg,
-                  COUNT(*) FILTER (WHERE d.doc_type IN ('LN','L','CL','TL','FTL','CEL'))::int AS orliens,
+                  COUNT(*) FILTER (WHERE d.doc_type IN ('FJ','FJX','CFJ','CJF','J'))::int AS judg,
+                  COUNT(*) FILTER (WHERE d.doc_type IN ('LN','LIE','LIEX','L','CL','TL','FTL','CEL'))::int AS orliens,
                   COUNT(*) FILTER (WHERE d.doc_type = 'PRO')::int AS probate
              FROM or_parcels op JOIN or_docs d ON d.county_no = op.county_no AND d.instr = op.instr
             WHERE op.county_no = 16 AND op.parcel_id = ANY($1::text[]) AND d.rec_date >= CURRENT_DATE - INTERVAL '2 years'

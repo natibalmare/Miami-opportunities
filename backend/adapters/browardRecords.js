@@ -25,6 +25,9 @@ const DOC_TYPES = {
   REL: 'Release', RST: 'Release / satisfaction', PR: 'Partial release', LP: 'Lis pendens', RLP: 'Release of lis pendens',
   J: 'Judgment', FJ: 'Final judgment', CFJ: 'Certified final judgment', LN: 'Lien', L: 'Lien', CL: 'Claim of lien', TL: 'Tax lien',
   FTL: 'Federal tax lien', CEL: 'Code enforcement lien', NOC: 'Notice of commencement', PRO: 'Probate', DC: 'Death certificate',
+  LIE: 'Lien', LIEX: 'Lien', FJX: 'Final judgment', CJF: 'Certified final judgment', RSTX: 'Release / satisfaction', AST: 'Assignment',
+  NOT: 'Notice', CP: 'Certified court copy', CPX: 'Certified court copy', TSD: 'Tax deed', 'FS UCC': 'UCC financing statement',
+  CER: 'Certificate', RES: 'Resolution / restrictions', NCL: 'Notice of contest of lien', MODX: 'Mortgage modification', CDO: 'Condominium document',
   AFF: 'Affidavit', AGR: 'Agreement', EAS: 'Easement', PLAT: 'Plat', POA: 'Power of attorney', DEC: 'Declaration', ORD: 'Court order', O: 'Court order',
 }
 const docLabel = (t) => DOC_TYPES[String(t || '').toUpperCase()] || t
@@ -180,7 +183,7 @@ async function syncBroward(tooBig) {
 
 /* Recorded documents for one Broward parcel, newest first, with who signed / received and linked releases */
 const norm = (n) => String(n || '').toUpperCase().replace(/[^A-Z0-9&]+/g, ' ').trim()
-const NAME_TYPES = ['LP', 'FJ', 'CFJ', 'J', 'LN', 'L', 'CL', 'TL', 'FTL', 'CEL', 'PRO']
+const NAME_TYPES = ['LP', 'FJ', 'FJX', 'CFJ', 'CJF', 'J', 'LN', 'LIE', 'LIEX', 'L', 'CL', 'TL', 'FTL', 'CEL', 'PRO', 'TSD']
 
 async function documentsFor(parcelId) {
   const pid = String(parcelId || '').toUpperCase().replace(/[^0-9A-Z]/g, '')

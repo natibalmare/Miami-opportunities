@@ -12,7 +12,7 @@ const { documentsFor } = require('../adapters/browardRecords')
 
 /* GET /api/records/official/:county/:parcel — recorded documents (Broward for now).
    Signed-in users see counts; the full list needs the report unlocked. */
-const DISTRESS = { LP: 'lisPendens', FJ: 'judgments', CFJ: 'judgments', J: 'judgments', LN: 'liens', L: 'liens', CL: 'liens', TL: 'liens', FTL: 'liens', CEL: 'liens', PRO: 'probate', TD: 'taxDeeds' }
+const DISTRESS = { LP: 'lisPendens', FJ: 'judgments', FJX: 'judgments', CFJ: 'judgments', CJF: 'judgments', J: 'judgments', LN: 'liens', LIE: 'liens', LIEX: 'liens', L: 'liens', CL: 'liens', TL: 'liens', FTL: 'liens', CEL: 'liens', PRO: 'probate', TD: 'taxDeeds', TSD: 'taxDeeds' }
 router.get('/official/:county/:parcel', requireAuth, async (req, res) => {
   try {
     const countyNo = Number(req.params.county)
@@ -25,7 +25,7 @@ router.get('/official/:county/:parcel', requireAuth, async (req, res) => {
       const t = String(d.type || '').toUpperCase()
       if (DISTRESS[t] && (d.date || '') >= since) summary[DISTRESS[t]]++
       if (t === 'M') { summary.mortgages++; if (!d.releasedBy.length) summary.openMortgages++ }
-      if (!summary.lastDeed && /^(D|DED|WD|QCD|QC|TD|CT)$/.test(t)) summary.lastDeed = { date: d.date, type: d.typeLabel, amount: d.amount }
+      if (!summary.lastDeed && /^(D|DED|WD|QCD|QC|TD|TSD|CT)$/.test(t)) summary.lastDeed = { date: d.date, type: d.typeLabel, amount: d.amount }
     }
     const full = isAdminEmail(req.user.email) || await alreadyOwned(pool, req.user.id, normFolio(parcelId))
     res.json({ covered: true, summary, locked: !full, documents: full ? docs : [], since })
