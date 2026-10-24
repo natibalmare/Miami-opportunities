@@ -9,6 +9,13 @@ const BASE = (col) => `regexp_replace(UPPER(${col}), '\\s+(#|UNIT|APT|STE|SUITE|
 
 async function assignCondoPoints() {
   const t0 = Date.now()
+  /* How many properties still have no map location, per county, with a few sample addresses */
+  try {
+    const d = await query(`SELECT p.county_no, COUNT(*)::int AS n, (array_agg(p.phy_addr1 ORDER BY random()))[1:5] AS samples
+      FROM parcels p LEFT JOIN parcel_points pt ON pt.county_no = p.county_no AND pt.parcel_id = p.parcel_id
+      WHERE pt.parcel_id IS NULL GROUP BY 1`)
+    d.rows.forEach(r => console.log(`[map] county ${r.county_no}: ${r.n.toLocaleString()} properties without a map point — e.g. ${(r.samples || []).join(' | ')}`))
+  } catch (e) { console.error('[map] point check failed —', e.message) }
   const r = await query(`
     WITH missing AS (
       SELECT p.county_no, p.parcel_id, ${BASE('p.phy_addr1')} AS base, p.phy_zip

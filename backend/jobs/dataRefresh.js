@@ -56,13 +56,14 @@ async function runOnce() {
           (file.modified && new Date(file.modified) > new Date(done.file_modified || 0))
         /* One-time reload so Broward and Palm Beach get subdivision names from the legal description */
         if (!isNew && county.no !== 23) {
-          const hasSub = await query('SELECT 1 FROM parcels WHERE county_no=$1 AND subdivision IS NOT NULL LIMIT 1', [county.no])
-          if (!hasSub.rows.length) { isNew = true; console.log(`[data] ${county.name}: reloading to add subdivision names`) }
+          const mark = await lastDone(county.no, 'subdiv-v1')
+          if (!mark) { isNew = true; console.log(`[data] ${county.name}: reloading to add subdivision names`) }
         }
 
         if (isNew) {
           if (await dbTooBig()) break
           await importCounty(county, file)
+          if (county.no !== 23) await query(`INSERT INTO data_imports (county_no, source, file_name, status, finished_at) VALUES ($1,'subdiv-v1',$2,'done',NOW())`, [county.no, file.name])
         } else {
           console.log(`[data] ${county.name}: up to date (${file.name})`)
         }
