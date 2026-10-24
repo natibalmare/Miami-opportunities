@@ -8,6 +8,9 @@
 //   lnk  : instrument | | | O | doc type | linked instrument | | | O | linked type | …
 
 const readline = require('readline')
+const fs = require('fs')
+const os = require('os')
+const path = require('path')
 const { query, pool } = require('../db/pool')
 
 const HOST = { host: 'BCFTP.Broward.org', port: 22, username: 'crpublic', password: 'crpublic', readyTimeout: 30000 }
@@ -108,7 +111,13 @@ async function importFile(sftp, dir, file) {
   const importId = ins.rows[0].id
   let loaded = 0
   try {
-    const stream = sftp.sftp.createReadStream(`${dir}/${file.name}`, { encoding: 'latin1' })
+    /* Download first (parallel transfer), then read from local disk — much faster than streaming over SFTP */
+    const local = path.join(os.tmpdir(), `bcor-${process.pid}-${file.name}`)
+    const t0 = Date.now()
+    await sftp.fastGet(`${dir}/${file.name}`, local, { concurrency: 32, chunkSize: 65536 })
+    if (file.size > 5e6) console.log(`[or] Broward ${file.name}: downloaded ${Math.round(file.size / 1e6)} MB in ${Math.round((Date.now() - t0) / 1000)}s`)
+    const stream = fs.createReadStream(local, { encoding: 'latin1' })
+    stream.on('close', () => fs.promises.unlink(local).catch(() => {}))
     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
     let batch = []
     for await (const line of rl) {
