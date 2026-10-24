@@ -5,16 +5,10 @@
 const fetch = require('node-fetch')
 
 const ROOTS = [
-  'https://gisweb.miamidade.gov/arcgis/rest/services',
   'https://services.arcgis.com/8Pc9XBTAsYuxx9Ny/ArcGIS/rest/services',
-  'https://gis.miami.gov/gis/rest/services',
-  'https://gis.broward.org/arcgis/rest/services',
-  'https://bcgis.broward.org/arcgis/rest/services',
-  'https://gis.fortlauderdale.gov/arcgis/rest/services',
-  'https://maps.co.palm-beach.fl.us/arcgis/rest/services',
-  'https://gis.pbcgov.org/arcgis/rest/services',
+  'https://gisweb.miamidade.gov/arcgis/rest/services',
 ]
-const MATCH = /permit|code|violat|lien|unsafe|foreclos|delinq|certif|enforce|inspect/i
+const MATCH = /bldg|building|permit|unsafe|recert/i
 
 const get = async (url) => {
   const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'f=json', { timeout: 20000 })
@@ -38,8 +32,8 @@ async function runProbe() {
   for (const root of ROOTS) {
     let list
     try { list = await services(root) } catch (e) { log(`${root} — unreachable (${e.message})`); continue }
-    const hits = list.filter(s => MATCH.test(s.name) && /MapServer|FeatureServer/.test(s.type))
-    log(`${root} — ${list.length} services, ${hits.length} relevant`)
+    const hits = list.filter(s => MATCH.test(s.name) && /MapServer|FeatureServer/.test(s.type) && !/Violation|Wetland|Water|Well|Center|Territory|Polygon/i.test(s.name))
+    log(`${root} — ${list.length} services, ${hits.length} relevant: ${hits.map(h => h.name).join(', ')}`)
     for (const s of hits.slice(0, 25)) {
       try {
         const info = await get(s.url)
