@@ -54,6 +54,44 @@ async function runProbe() {
     }
   }
 
+  /* Broward Official Records — public daily index files (county publishes the login: crpublic / crpublic) */
+  try {
+    const SftpClient = require('ssh2-sftp-client')
+    const sftp = new SftpClient()
+    await sftp.connect({ host: 'BCFTP.Broward.org', port: 22, username: 'crpublic', password: 'crpublic', readyTimeout: 20000 })
+    const walk = async (dir, depth) => {
+      const items = await sftp.list(dir)
+      for (const it of items.slice(0, 30)) {
+        const p = `${dir === '/' ? '' : dir}/${it.name}`
+        log(`BCFTP ${it.type} ${p} ${it.size} ${new Date(it.modifyTime).toISOString().slice(0, 10)}`)
+        if (it.type === 'd' && depth < 2) await walk(p, depth + 1)
+      }
+      return items
+    }
+    await walk('/', 0)
+    /* Peek at the newest small text-like file */
+    const peek = async (dir) => {
+      const items = (await sftp.list(dir)).filter(i => i.type === '-' && i.size > 0 && i.size < 50e6 && !/\.(tif|tiff|pdf|jpg|png)$/i.test(i.name))
+      items.sort((a, b) => b.modifyTime - a.modifyTime)
+      return items[0] ? `${dir === '/' ? '' : dir}/${items[0].name}` : null
+    }
+    let target = await peek('/')
+    if (!target) {
+      for (const d of (await sftp.list('/')).filter(i => i.type === 'd')) { target = await peek(`/${d.name}`); if (target) break }
+    }
+    if (target) {
+      const chunks = []
+      await new Promise((resolve, reject) => {
+        const st = sftp.sftp.createReadStream(target, { start: 0, end: 2500 })
+        st.on('data', c => chunks.push(c)); st.on('end', resolve); st.on('error', reject)
+      })
+      const head = Buffer.concat(chunks)
+      log(`BCFTP sample ${target} (zip=${head[0] === 0x50 && head[1] === 0x4b})`)
+      if (!(head[0] === 0x50 && head[1] === 0x4b)) head.toString('latin1').split(/\r?\n/).slice(0, 8).forEach(l => log(`BCFTP | ${l.slice(0, 300)}`))
+    }
+    await sftp.end()
+  } catch (e) { log(`BCFTP error ${e.message}`) }
+
   /* Keys already saved on Railway — check only that they are present and their kind (no paid calls) */
   const mb = process.env.MAPBOX_TOKEN || ''
   log(`MAPBOX_TOKEN: ${mb ? (mb.startsWith('pk.') ? 'public token present' : mb.startsWith('sk.') ? 'secret token present' : 'present, unknown format') : 'missing'}`)
