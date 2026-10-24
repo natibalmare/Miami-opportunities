@@ -6,6 +6,7 @@ const { query } = require('../db/pool')
 const { requireAuth } = require('../middleware/auth')
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/mailer')
 
+const ROLES = ['buyer', 'seller', 'agent']
 const RESET_MINUTES = 15
 const RESET_MAX_ATTEMPTS = 5
 
@@ -41,7 +42,8 @@ const publicUser = (user) => ({
 /* POST /api/auth/register */
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, firstName, lastName, phone, role = 'buyer', needsAgent = true } = req.body
+    const { email, password, firstName, lastName, phone, role = 'buyer', needsAgent = true, smsOptIn = false } = req.body
+    const safeRole = ROLES.includes(role) ? role : 'buyer'
     if (!email || !password || !firstName || !lastName)
       return res.status(400).json({ error: 'Required: email, password, firstName, lastName' })
     if (password.length < 8)
@@ -55,9 +57,11 @@ router.post('/register', async (req, res) => {
     const expires = new Date(Date.now() + 10 * 60 * 1000)
 
     const result = await query(
-      `INSERT INTO users (email, password, first_name, last_name, phone, role, needs_agent, email_verify_code, email_verify_expires)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, email, first_name, last_name, phone, role, plan`,
-      [email.toLowerCase(), hash, firstName, lastName, phone || null, role, needsAgent, code, expires]
+      `INSERT INTO users (email, password, first_name, last_name, phone, role, needs_agent, email_verify_code, email_verify_expires,
+                          sms_opt_in, sms_opt_in_at, sms_opt_in_ip)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, email, first_name, last_name, phone, role, plan`,
+      [email.toLowerCase(), hash, firstName, lastName, phone || null, safeRole, needsAgent, code, expires,
+       !!(smsOptIn && phone), smsOptIn && phone ? new Date() : null, smsOptIn && phone ? clientIp(req) : null]
     )
     const user = result.rows[0]
     const u = publicUser(user)
@@ -173,30 +177,67 @@ router.post('/reset-password', async (req, res) => {
 router.get('/me', requireAuth, async (req, res) => {
   try {
     const r = await query(
-      'SELECT id, email, first_name, last_name, phone, role, plan, email_verified FROM users WHERE id = $1',
+      'SELECT id, email, first_name, last_name, phone, role, plan, email_verified, sms_opt_in, email_opt_out, license_number, brokerage FROM users WHERE id = $1',
       [req.user.id]
     )
     if (!r.rows.length) return res.status(404).json({ error: 'User not found' })
     const u = r.rows[0]
-    res.json({ id: u.id, email: u.email, firstName: u.first_name, lastName: u.last_name, phone: u.phone, role: u.role, plan: u.plan, emailVerified: u.email_verified, isAdmin: isAdmin(u.email) })
+    res.json({
+      id: u.id, email: u.email, firstName: u.first_name, lastName: u.last_name, phone: u.phone, role: u.role, plan: u.plan,
+      emailVerified: u.email_verified, isAdmin: isAdmin(u.email),
+      smsOptIn: u.sms_opt_in, emailOptOut: u.email_opt_out, licenseNumber: u.license_number, brokerage: u.brokerage,
+    })
   } catch (e) {
     res.status(500).json({ error: 'Failed to fetch user' })
   }
 })
 
-/* PATCH /api/auth/profile */
+/* PATCH /api/auth/profile — name, phone, role, agent details, message preferences */
 router.patch('/profile', requireAuth, async (req, res) => {
   try {
-    const { firstName, lastName, phone } = req.body
+    const cur = (await query('SELECT first_name, last_name, phone, role, sms_opt_in, email_opt_out, license_number, brokerage FROM users WHERE id=$1', [req.user.id])).rows[0]
+    if (!cur) return res.status(404).json({ error: 'User not found' })
+    const b = req.body
+    const txt = (v, old, max = 80) => v === undefined ? old : (String(v).trim().slice(0, max) || null)
+    const firstName = txt(b.firstName, cur.first_name), lastName = txt(b.lastName, cur.last_name)
+    if (!firstName || !lastName) return res.status(400).json({ error: 'First and last name are required' })
+    const phone = txt(b.phone, cur.phone, 30)
+    const role = ROLES.includes(b.role) ? b.role : cur.role
+    const smsOptIn = b.smsOptIn === undefined ? cur.sms_opt_in : !!(b.smsOptIn && phone)
+    const newlyOptedIn = smsOptIn && !cur.sms_opt_in
     await query(
-      'UPDATE users SET first_name=$1, last_name=$2, phone=$3, updated_at=NOW() WHERE id=$4',
-      [firstName, lastName, phone, req.user.id]
-    )
+      `UPDATE users SET first_name=$1, last_name=$2, phone=$3, role=$4, license_number=$5, brokerage=$6,
+              email_opt_out=$7, sms_opt_in=$8,
+              sms_opt_in_at = CASE WHEN $9 THEN NOW() WHEN $8 THEN sms_opt_in_at ELSE NULL END,
+              sms_opt_in_ip = CASE WHEN $9 THEN $10 WHEN $8 THEN sms_opt_in_ip ELSE NULL END,
+              updated_at=NOW()
+        WHERE id=$11`,
+      [firstName, lastName, phone, role, txt(b.licenseNumber, cur.license_number, 30), txt(b.brokerage, cur.brokerage, 120),
+       b.emailOptOut === undefined ? cur.email_opt_out : !!b.emailOptOut, smsOptIn, newlyOptedIn, clientIp(req), req.user.id])
     res.json({ success: true })
   } catch (e) {
+    console.error('Profile update failed:', e.message)
     res.status(500).json({ error: 'Update failed' })
   }
 })
+
+/* GET|POST /api/auth/unsubscribe?u=&t= — one-click email unsubscribe link */
+async function unsubscribe(req, res) {
+  const u = String(req.query.u || ''), t = String(req.query.t || '')
+  const expected = crypto.createHmac('sha256', process.env.JWT_SECRET || 'mo').update(`unsub:${u}`).digest('hex').slice(0, 32)
+  const ok = /^[0-9a-f-]{36}$/i.test(u) && t.length === 32 && crypto.timingSafeEqual(Buffer.from(t), Buffer.from(expected))
+  if (ok) await query('UPDATE users SET email_opt_out=true, updated_at=NOW() WHERE id=$1', [u]).catch(() => {})
+  if (req.method === 'POST') return res.status(ok ? 200 : 400).end()
+  const site = (process.env.FRONTEND_URL || 'https://miamiopportunities.com').replace(/\/$/, '')
+  res.set('Content-Type', 'text/html').send(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+    <div style="font-family:Helvetica,Arial,sans-serif;max-width:460px;margin:80px auto;padding:0 20px;text-align:center;color:#1A2828">
+      <div style="font-size:22px;letter-spacing:4px;color:#0A3D3A">MIAMI</div><div style="font-size:11px;letter-spacing:3px;color:#C4A46B;margin-bottom:28px">OPPORTUNITIES</div>
+      <p style="font-size:16px">${ok ? 'You are unsubscribed from Miami Opportunities marketing emails.' : 'This unsubscribe link is not valid.'}</p>
+      <p style="font-size:13px;color:#5A6A69">You will still receive account emails such as sign-in codes and receipts. You can change this anytime in My Account.</p>
+      <p><a href="${site}" style="color:#A88C38">Back to Miami Opportunities</a></p></div>`)
+}
+router.get('/unsubscribe', unsubscribe)
+router.post('/unsubscribe', unsubscribe)
 
 /* POST /api/auth/verify-email */
 router.post('/verify-email', requireAuth, async (req, res) => {

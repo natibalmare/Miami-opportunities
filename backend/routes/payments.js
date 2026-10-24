@@ -15,6 +15,11 @@ const PLANS = {
     prices: { month: 'STRIPE_PRICE_INVESTOR_MONTHLY', year: 'STRIPE_PRICE_INVESTOR_ANNUAL' },
     amounts: { month: 29, year: 290 },
   },
+  agent: {
+    name: 'Agent', reports: 15, seats: 1, overage: 2.99,
+    prices: { month: 'STRIPE_PRICE_AGENT_MONTHLY', year: 'STRIPE_PRICE_AGENT_ANNUAL' },
+    amounts: { month: 49, year: 490 },
+  },
   pro: {
     name: 'Pro', reports: 50, seats: 2, overage: 2.49,
     prices: { month: 'STRIPE_PRICE_PRO_MONTHLY', year: 'STRIPE_PRICE_PRO_ANNUAL' },
@@ -264,7 +269,7 @@ router.post('/checkout', requireAuth, async (req, res) => {
 router.post('/membership/checkout', requireAuth, async (req, res) => {
   try {
     const { plan, interval = 'month' } = req.body
-    if (!PLANS[plan]) return res.status(400).json({ error: 'Plan must be investor, pro, or business' })
+    if (!PLANS[plan]) return res.status(400).json({ error: 'Plan must be investor, agent, pro, or business' })
     if (!['month', 'year'].includes(interval)) return res.status(400).json({ error: 'Interval must be month or year' })
     const priceId = process.env[PLANS[plan].prices[interval]]
     if (!priceId) return res.status(500).json({ error: 'This plan price is not configured' })

@@ -1,77 +1,194 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../utils/AuthContext'
 import AuthModal from '../components/AuthModal'
+import { api } from '../utils/api'
 
-const LISTINGS = [
-  { id: 1, name: 'Maria Gonzalez', role: 'buyer', hasAgent: false, area: 'Miami Shores / Shorecrest', budget: '$400K–$600K', msg: 'Looking for 3/2 SF, absentee or pre-foreclosure preferred. Cash or FHA 203(k). Can close in 30 days.', phone: true, email: true },
-  { id: 2, name: 'James Okafor',   role: 'seller', hasAgent: true,  area: 'North Miami Beach', budget: 'Asking $385,000', msg: 'Inherited property. Motivated to sell as-is, no repairs. Open to all financing. Agent: RE/MAX.', phone: true, email: false },
-  { id: 3, name: 'Sandra Lin',     role: 'buyer', hasAgent: false, area: 'Upper East Side / MiMo', budget: '$550K–$750K', msg: 'Architect. Interested in MiMo-era homes with renovation potential. Conventional or renovation loan. Need agent referral.', phone: false, email: true },
-  { id: 4, name: 'Roberto Alves',  role: 'seller', hasAgent: false, area: 'Hallandale Beach', budget: 'Asking $290,000', msg: 'Need to sell per court order. Title clear. Can close in 21 days. Willing to negotiate.', phone: true, email: true },
-]
+const money = (n) => (n || n === 0) ? '$' + Number(n).toLocaleString('en-US') : ''
+const ago = (d) => {
+  const days = Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
+  return days <= 0 ? 'Today' : days === 1 ? 'Yesterday' : `${days} days ago`
+}
+const facts = (l) => [l.propertyType, l.beds ? `${l.beds} bd` : '', l.baths ? `${l.baths} ba` : '', l.livingSqft ? `${Number(l.livingSqft).toLocaleString()} sqft` : ''].filter(Boolean).join(' · ')
 
 export default function ContactBoard() {
   const { user } = useAuth()
+  const nav = useNavigate()
+  const [tab, setTab] = useState('fsbo')
+  const [zip, setZip] = useState('')
+  const [maxPrice, setMaxPrice] = useState('')
+  const [needsAgent, setNeedsAgent] = useState(false)
+  const [items, setItems] = useState(null)
+  const [error, setError] = useState('')
+  const [open, setOpen] = useState(null)
   const [authOpen, setAuthOpen] = useState(false)
-  const [postOpen, setPostOpen] = useState(false)
-  const [filter, setFilter] = useState('all')
 
-  const filtered = LISTINGS.filter(l => filter === 'all' || l.role === filter || (filter === 'needs-agent' && !l.hasAgent))
+  useEffect(() => {
+    let off = false
+    setItems(null); setError('')
+    const t = setTimeout(() => {
+      api.getBoard({ type: tab, zip: zip.length === 5 ? zip : '', maxPrice: tab === 'fsbo' ? maxPrice.replace(/\D/g, '') : '', needsAgent: needsAgent ? '1' : '' })
+        .then(d => { if (!off) setItems(d.listings || []) })
+        .catch(() => { if (!off) { setItems([]); setError('The board is temporarily unavailable. Please try again.') } })
+    }, 250)
+    return () => { off = true; clearTimeout(t) }
+  }, [tab, zip, maxPrice, needsAgent, user])
+
+  const post = (type) => user ? nav(`/my-listings?new=${type}`) : setAuthOpen(true)
+  const tabBtn = (on) => ({ border: 'none', borderBottom: `2px solid ${on ? '#C4A46B' : 'transparent'}`, background: 'none', padding: '10px 4px', marginRight: 22, fontSize: 14, fontWeight: on ? 600 : 400, color: on ? '#0A3D3A' : '#6B7878', cursor: 'pointer', fontFamily: 'inherit' })
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <div style={{ fontSize: 22, fontWeight: 300, letterSpacing: -0.5 }}>Buyer / Seller Board</div>
-          <div style={{ fontSize: 12, color: '#9A9488', marginTop: 3 }}>Connect with buyers, sellers, and agents across South Florida</div>
+          <div style={{ fontSize: 12.5, color: '#7A8584', marginTop: 3 }}>Homes for sale by owner and buyers looking in South Florida. Message privately — contact details stay hidden.</div>
         </div>
-        <button className="btn btn-gold" disabled title="Posting opens soon">Posting Opens Soon</button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn btn-gold btn-sm" onClick={() => post('fsbo')}>Sell By Owner — Post Free</button>
+          <button className="btn btn-outline btn-sm" onClick={() => post('buyer')}>I’m a Buyer — Post Free</button>
+        </div>
       </div>
 
-      <div className="alert alert-info" style={{ marginBottom: 12 }}>
-        The posts below are <strong>examples</strong> of how the board will look. Real buyer and seller posts open soon.
+      <div style={{ borderBottom: '1px solid #E0DCD0', marginBottom: 14 }}>
+        <button style={tabBtn(tab === 'fsbo')} onClick={() => setTab('fsbo')}>For Sale By Owner</button>
+        <button style={tabBtn(tab === 'buyer')} onClick={() => setTab('buyer')}>Buyers Looking</button>
       </div>
 
-      {false && (
-        <div className="alert alert-info" style={{ marginBottom: 16 }}>
-          Contact details are visible to registered members only.
-          <a href="#" onClick={e => { e.preventDefault(); setAuthOpen(true) }} style={{ color: '#185FA5', fontWeight: 600, marginLeft: 6 }}>Sign in or register free →</a>
-        </div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+        <input className="input" style={{ width: 120 }} inputMode="numeric" maxLength={5} placeholder="ZIP code" value={zip} onChange={e => setZip(e.target.value.replace(/\D/g, ''))} />
+        {tab === 'fsbo' && <input className="input" style={{ width: 160 }} inputMode="numeric" placeholder="Max price" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} />}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: '#3E4A49', cursor: 'pointer' }}>
+          <input type="checkbox" checked={needsAgent} onChange={e => setNeedsAgent(e.target.checked)} style={{ accentColor: '#C4A46B' }} />
+          {tab === 'fsbo' ? 'Owner has no agent' : 'Buyer needs an agent'}
+        </label>
+      </div>
+
+      {error && <div className="alert alert-danger" style={{ marginBottom: 12 }}>{error}</div>}
+      {items === null && <div style={{ color: '#9A9488', fontSize: 13, padding: 20 }}>Loading…</div>}
+      {items && items.length === 0 && !error && (
+        <div className="card"><div className="card-body" style={{ textAlign: 'center', padding: '34px 20px' }}>
+          <div style={{ fontSize: 16, marginBottom: 6 }}>{tab === 'fsbo' ? 'No homes posted here yet' : 'No buyer posts here yet'}</div>
+          <div style={{ fontSize: 13, color: '#7A8584', marginBottom: 14 }}>{tab === 'fsbo' ? 'Selling your home yourself? Post it free and get messages from buyers.' : 'Looking to buy? Post what you need and let sellers find you.'}</div>
+          <button className="btn btn-gold btn-sm" onClick={() => post(tab)}>Post Free</button>
+        </div></div>
       )}
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-        {['all', 'buyer', 'seller', 'needs-agent'].map(f => (
-          <button key={f} className={`btn btn-sm ${filter === f ? 'btn-gold' : 'btn-outline'}`} onClick={() => setFilter(f)} style={{ textTransform: 'capitalize' }}>{f.replace('-', ' ')}</button>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+        {(items || []).map(l => (
+          <div key={l.id} className="card" style={{ cursor: 'pointer' }} onClick={() => setOpen(l.id)}>
+            <div className="card-body">
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                <span className={`badge badge-${l.type === 'fsbo' ? 'gold' : 'blue'}`}>{l.type === 'fsbo' ? 'For Sale By Owner' : 'Buyer'}</span>
+                <span style={{ fontSize: 11, color: '#9A9488' }}>{ago(l.createdAt)}</span>
+              </div>
+              {l.type === 'fsbo' ? (
+                <>
+                  <div style={{ fontSize: 20, fontWeight: 300, color: '#0A3D3A' }}>{money(l.price)}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 2 }}>{l.address}</div>
+                  <div style={{ fontSize: 12, color: '#6B7878' }}>{[l.city, l.zip].filter(Boolean).join(', ')}</div>
+                  <div style={{ fontSize: 12, color: '#3E4A49', marginTop: 6 }}>{facts(l)}</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 16, fontWeight: 500, color: '#0A3D3A' }}>{l.budget}</div>
+                  <div style={{ fontSize: 13, marginTop: 2 }}>{l.area}</div>
+                  <div style={{ fontSize: 12, color: '#3E4A49', marginTop: 6 }}>{facts(l)}</div>
+                </>
+              )}
+              <div style={{ fontSize: 12.5, color: '#5A6A69', lineHeight: 1.5, marginTop: 8, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{l.message}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 11.5, color: '#7A8584' }}>
+                <span>{l.poster}{l.mine ? ' · Your post' : ''}</span>
+                <span>{l.hasAgent ? 'Has agent' : 'No agent'}</span>
+              </div>
+            </div>
+          </div>
         ))}
       </div>
 
-      {filtered.map(l => (
-        <div key={l.id} className="card" style={{ marginBottom: 10 }}>
-          <div className="card-body">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 500 }}>{l.name} <span className="badge badge-silver" style={{ fontSize: 8.5, marginLeft: 4 }}>Example</span></div>
-                <div style={{ fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase', color: l.role === 'buyer' ? '#185FA5' : '#A88C38', marginTop: 2 }}>{l.role}</div>
-              </div>
-              <div style={{ fontSize: 11, color: '#9A9488', textAlign: 'right' }}>{l.area}</div>
-            </div>
-            <div style={{ display: 'flex', gap: 5, marginBottom: 9 }}>
-              <span className={`badge badge-${l.role === 'buyer' ? 'blue' : 'gold'}`}>{l.role.charAt(0).toUpperCase() + l.role.slice(1)}</span>
-              <span className={`badge badge-${l.hasAgent ? 'green' : 'silver'}`}>{l.hasAgent ? 'Has Agent' : 'Needs Agent'}</span>
-            </div>
-            <div style={{ fontSize: 12.5, color: '#6B6456', lineHeight: 1.6, marginBottom: 10 }}>{l.msg}</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: '#A88C38' }}>{l.budget}</div>
-              <div style={{ fontSize: 11.5, color: '#9AA4A3' }}>Contact details appear here for members</div>
-            </div>
-          </div>
-        </div>
-      ))}
-
-      <div className="legal-notice">
-        All listings are self-reported. MO does not verify qualifications, property condition, or financial status. Use professional judgment. Do not use contact information for spam, harassment, or unsolicited marketing.
+      <div className="legal-notice" style={{ marginTop: 18 }}>
+        Posts are created by members and are not verified by MO. MO is not a party to any transaction, does not represent buyers or sellers on this board, and does not receive compensation from posts. Verify ownership, condition and financing independently and consult a Florida real estate attorney before signing anything. Never send money or personal financial information through messages.
       </div>
 
-      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      {open && <ListingModal id={open} onClose={() => setOpen(null)} onSignIn={() => { setOpen(null); setAuthOpen(true) }} />}
+      {authOpen && <AuthModal initialMode="register" onClose={() => setAuthOpen(false)} />}
+    </div>
+  )
+}
+
+function ListingModal({ id, onClose, onSignIn }) {
+  const nav = useNavigate()
+  const [d, setD] = useState(null)
+  const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    api.getListing(id).then(setD).catch(() => setError('This post is not available.'))
+  }, [id])
+
+  const send = async () => {
+    setBusy(true); setError('')
+    try {
+      const r = await api.startConversation(id, msg)
+      nav(`/messages?c=${r.conversationId}`)
+    } catch (e) { setError(e.message) } finally { setBusy(false) }
+  }
+
+  const l = d?.listing
+  const c = d?.contact
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,30,30,0.55)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+      <div style={{ background: '#FFFFFF', borderRadius: 12, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid #E8E4D8' }}>
+          <span className={`badge badge-${l?.type === 'fsbo' ? 'gold' : 'blue'}`}>{l ? (l.type === 'fsbo' ? 'For Sale By Owner' : 'Buyer Looking') : '…'}</span>
+          <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: 22, cursor: 'pointer', color: '#7A8584' }}>×</button>
+        </div>
+        <div style={{ padding: 18 }}>
+          {!l && !error && <div style={{ color: '#9A9488' }}>Loading…</div>}
+          {l && (
+            <>
+              {l.type === 'fsbo' ? (
+                <>
+                  <div style={{ fontSize: 26, fontWeight: 300, color: '#0A3D3A' }}>{money(l.price)}</div>
+                  <div style={{ fontSize: 15, fontWeight: 600 }}>{l.address}</div>
+                  <div style={{ fontSize: 13, color: '#6B7878', marginBottom: 6 }}>{[l.city, l.zip].filter(Boolean).join(', ')}</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 20, fontWeight: 500, color: '#0A3D3A' }}>{l.budget}</div>
+                  <div style={{ fontSize: 14, marginBottom: 6 }}>{l.area}</div>
+                </>
+              )}
+              <div style={{ fontSize: 13, color: '#3E4A49', marginBottom: 10 }}>{facts(l)}</div>
+              <div style={{ fontSize: 13.5, color: '#2A3636', lineHeight: 1.6, whiteSpace: 'pre-wrap', marginBottom: 12 }}>{l.message}</div>
+              <div style={{ fontSize: 12, color: '#7A8584', marginBottom: 16 }}>
+                Posted by {l.poster} · {l.hasAgent ? 'Has an agent' : 'No agent'}{l.type === 'fsbo' && !l.agentsOk ? ' · No agents, please' : ''} · {l.views} views
+              </div>
+
+              {l.mine ? (
+                <button className="btn btn-outline btn-sm" onClick={() => nav('/my-listings')}>Manage this post</button>
+              ) : c?.ok ? (
+                <>
+                  <label className="form-label">Send a private message</label>
+                  <textarea className="input" rows={4} style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit' }} maxLength={2000} value={msg} onChange={e => setMsg(e.target.value)}
+                    placeholder={l.type === 'fsbo' ? 'Hi, is the property still available? I’d like to schedule a visit.' : 'Hi, I have a property that may fit what you’re looking for.'} />
+                  {error && <div className="alert alert-danger" style={{ margin: '8px 0' }}>{error}</div>}
+                  <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }} disabled={busy || msg.trim().length < 2} onClick={send}>{busy ? 'Sending…' : 'Send Message'}</button>
+                  <div style={{ fontSize: 11, color: '#9A9488', marginTop: 6 }}>Your email and phone are not shared. Replies arrive in Messages and by email.</div>
+                </>
+              ) : (
+                <div className="alert alert-info">
+                  {c?.reason || 'Sign in to send a message.'}
+                  {!c || c.reason?.startsWith('Sign in') ? <button className="btn btn-gold btn-sm" style={{ marginLeft: 10 }} onClick={onSignIn}>Sign in / Join free</button> : null}
+                  {c?.upgrade && <button className="btn btn-gold btn-sm" style={{ marginLeft: 10 }} onClick={() => nav('/pricing')}>See Agent plan</button>}
+                </div>
+              )}
+            </>
+          )}
+          {error && !l && <div className="alert alert-danger">{error}</div>}
+        </div>
+      </div>
     </div>
   )
 }

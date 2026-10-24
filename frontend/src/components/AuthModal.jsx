@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useAuth } from '../utils/AuthContext'
 import { api } from '../utils/api'
+import { SMS_CONSENT } from '../utils/consent'
 
 export default function AuthModal({ onClose, afterLogin, initialMode = 'login' }) {
   const { login } = useAuth()
   const [mode, setMode] = useState(initialMode === 'register' ? 'register' : 'login')
   const [role, setRole] = useState('buyer')
   const [needsAgent, setNeedsAgent] = useState(true)
+  const [smsOptIn, setSmsOptIn] = useState(false)
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -28,7 +30,7 @@ export default function AuthModal({ onClose, afterLogin, initialMode = 'login' }
           throw new Error('Please fill in all required fields')
         if (form.password.length < 8)
           throw new Error('Password must be at least 8 characters')
-        data = await api.register({ ...form, role, needsAgent })
+        data = await api.register({ ...form, role, needsAgent, smsOptIn: smsOptIn && !!form.phone })
         login(data.user, data.token)
         setAwaitingCode(true)
       } else {
@@ -240,7 +242,7 @@ export default function AuthModal({ onClose, afterLogin, initialMode = 'login' }
             <>
               <div className="form-label">I am a</div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                {[['buyer', '🏠', 'Buyer', 'Looking to purchase'], ['seller', '📋', 'Seller', 'Have a property'], ['agent', '🤝', 'Agent', 'Licensed professional']].map(([v, ic, n, d]) => (
+                {[['buyer', '🏠', 'Buyer / Investor', 'Looking to purchase'], ['seller', '📋', 'Seller', 'Have a property'], ['agent', '🤝', 'Agent', 'Licensed professional']].map(([v, ic, n, d]) => (
                   <div key={v} style={rl(role === v)} onClick={() => setRole(v)}>
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{ic}</div>
                     <div style={{ fontSize: 11.5, fontWeight: 500 }}>{n}</div>
@@ -282,6 +284,12 @@ export default function AuthModal({ onClose, afterLogin, initialMode = 'login' }
                 <label className="form-label">Phone Number</label>
                 <input className="input" type="tel" value={form.phone} onChange={set('phone')} placeholder="+1 (305) 000-0000" />
                 <div style={{ fontSize: 9.5, color: '#9A9488', marginTop: 4 }}>Optional</div>
+                {form.phone && (
+                  <label style={{ display: 'flex', gap: 7, fontSize: 10, color: '#6B7878', marginTop: 8, lineHeight: 1.45, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={smsOptIn} onChange={e => setSmsOptIn(e.target.checked)} style={{ accentColor: '#C4A46B', marginTop: 1 }} />
+                    <span>{SMS_CONSENT}</span>
+                  </label>
+                )}
               </div>
             </>
           )}

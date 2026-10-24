@@ -48,7 +48,7 @@ export default function AboutPage() {
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button className="btn btn-gold" onClick={() => nav('/search')}>Search a Property →</button>
-          <button className="btn" style={{ background: 'transparent', border: '1px solid rgba(196,164,107,0.5)', color: '#D9BC88' }} onClick={() => nav('/account')}>See Plans</button>
+          <button className="btn" style={{ background: 'transparent', border: '1px solid rgba(196,164,107,0.5)', color: '#D9BC88' }} onClick={() => nav('/pricing')}>See Plans</button>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ export default function AboutPage() {
       <div style={{ ...card, textAlign: 'center', padding: '28px 20px', background: '#F5EDD8', borderColor: '#E3D3AE' }}>
         <div style={{ fontSize: 20, fontWeight: 400, marginBottom: 6 }}>Start with a free account</div>
         <div style={{ fontSize: 13, color: '#5A6A69', marginBottom: 16 }}>Search any property for free. Unlock full reports for $15, or choose a membership from $29/month.</div>
-        <button className="btn btn-gold" onClick={() => nav('/account')}>View Plans →</button>
+        <button className="btn btn-gold" onClick={() => nav('/pricing')}>View Plans →</button>
       </div>
     </div>
   )

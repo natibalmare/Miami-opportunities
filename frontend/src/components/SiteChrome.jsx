@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../utils/AuthContext'
+import { Analytics } from '@vercel/analytics/react'
 
 /* Contact details come from Vercel environment variables so they can change without code edits */
 const SUPPORT_PHONE = import.meta.env.VITE_SUPPORT_PHONE || ''
@@ -17,13 +18,13 @@ export function InfoBar({ onSignIn, onSignUp }) {
   const { user } = useAuth()
   const link = { color: 'rgba(250,248,242,0.85)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, fontFamily: 'inherit', padding: 0, textDecoration: 'none', whiteSpace: 'nowrap' }
   return (
-    <div style={{ background: '#0A3D3A', color: '#FAF8F2', padding: '7px 28px', display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', fontSize: 11.5, borderBottom: '1px solid rgba(196,164,107,0.25)' }}>
+    <div className="mo-infobar" style={{ background: '#0A3D3A', color: '#FAF8F2', padding: '7px 28px', display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', fontSize: 11.5, borderBottom: '1px solid rgba(196,164,107,0.25)' }}>
       {SUPPORT_EMAIL && <a style={link} href={`mailto:${SUPPORT_EMAIL}`}>✉ {SUPPORT_EMAIL}</a>}
       {SUPPORT_PHONE && <a style={link} href={`tel:${SUPPORT_PHONE.replace(/[^\d+]/g, '')}`}>☎ {SUPPORT_PHONE}</a>}
       <span style={{ marginLeft: 'auto', display: 'flex', gap: 18, flexWrap: 'wrap' }}>
         <button style={link} onClick={() => nav('/')}>About MO</button>
         {user && <button style={link} onClick={() => nav('/account')}>My Account</button>}
-        <button style={link} onClick={() => nav('/account')}>Plans &amp; Pricing</button>
+        <button style={link} onClick={() => nav('/pricing')}>Plans &amp; Pricing</button>
         {!user && <button style={link} onClick={onSignIn}>Sign In</button>}
         {!user && <button style={{ ...link, color: '#D9BC88', fontWeight: 600 }} onClick={onSignUp || onSignIn}>Create Free Account</button>}
       </span>
@@ -82,21 +83,33 @@ export function WelcomePopup({ onSignUp }) {
 }
 
 /* ── Privacy preference center (bottom-left button) ───────────────────────── */
+/* Cookie-free page-view counts (Vercel Web Analytics) unless the visitor turned analytics off */
+export function SiteAnalytics() {
+  const [on, setOn] = useState(() => store.get('mo_privacy_analytics') !== 'off')
+  useEffect(() => {
+    const f = () => setOn(store.get('mo_privacy_analytics') !== 'off')
+    window.addEventListener('mo:privacy', f)
+    return () => window.removeEventListener('mo:privacy', f)
+  }, [])
+  return on ? <Analytics /> : null
+}
+
 export function PrivacyCenter() {
   const [open, setOpen] = useState(false)
-  const [analytics, setAnalytics] = useState(() => store.get('mo_privacy_analytics') === 'on')
+  const [analytics, setAnalytics] = useState(() => store.get('mo_privacy_analytics') !== 'off')
 
   const save = (val) => {
     store.set('mo_privacy_analytics', val ? 'on' : 'off')
     store.set('mo_privacy_set', '1')
     setAnalytics(val)
     setOpen(false)
+    window.dispatchEvent(new Event('mo:privacy'))
   }
 
   return (
     <>
       <button onClick={() => setOpen(true)} aria-label="Privacy preferences" title="Privacy preferences"
-        style={{ position: 'fixed', left: 16, bottom: 16, zIndex: 900, width: 46, height: 46, borderRadius: '50%', background: '#0A3D3A', border: '2px solid #C4A46B', color: '#D9BC88', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        style={{ position: 'fixed', right: 16, bottom: 16, zIndex: 900, width: 46, height: 46, borderRadius: '50%', background: '#0A3D3A', border: '2px solid #C4A46B', color: '#D9BC88', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
           <path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3z" /><path d="M9 12l2 2 4-4" />
         </svg>
@@ -118,7 +131,7 @@ export function PrivacyCenter() {
                   <span style={{ fontSize: 11.5, color: '#2E6E4A', fontWeight: 600 }}>Always on</span>
                 </div>
                 <label style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
-                  <div><div style={{ fontWeight: 600 }}>Analytics</div><div style={{ fontSize: 11.5, color: '#7A8A89' }}>Anonymous usage stats to improve MO (not active yet)</div></div>
+                  <div><div style={{ fontWeight: 600 }}>Analytics</div><div style={{ fontSize: 11.5, color: '#7A8A89' }}>Cookie-free visitor counts (pages viewed, country, device) to improve MO. No personal data.</div></div>
                   <input type="checkbox" checked={analytics} onChange={e => setAnalytics(e.target.checked)} style={{ width: 18, height: 18 }} />
                 </label>
               </div>

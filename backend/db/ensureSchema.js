@@ -87,6 +87,69 @@ async function ensureSchema() {
        started_at  TIMESTAMPTZ DEFAULT NOW(),
        finished_at TIMESTAMPTZ
      )`,
+
+    // Marketing preferences (email opt-out, SMS opt-in with consent record)
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_opt_out BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_opt_in BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_opt_in_at TIMESTAMPTZ`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_opt_in_ip TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS brokerage TEXT`,
+
+    // Buyer / Seller board — FSBO property posts and buyer "wanted" posts
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS listing_type TEXT NOT NULL DEFAULT 'buyer'`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS title TEXT`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS address TEXT`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS city TEXT`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS zip TEXT`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS price BIGINT`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS beds SMALLINT`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS baths NUMERIC(4,1)`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS living_sqft INTEGER`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS property_type TEXT`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS agents_ok BOOLEAN NOT NULL DEFAULT true`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS views INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE board_listings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
+    `CREATE INDEX IF NOT EXISTS idx_board_status ON board_listings (status, listing_type, created_at DESC)`,
+
+    // In-app messages (contact details stay private)
+    `CREATE TABLE IF NOT EXISTS conversations (
+       id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+       listing_id  UUID REFERENCES board_listings(id) ON DELETE SET NULL,
+       starter_id  UUID REFERENCES users(id),
+       owner_id    UUID REFERENCES users(id),
+       last_message_at TIMESTAMPTZ DEFAULT NOW(),
+       created_at  TIMESTAMPTZ DEFAULT NOW(),
+       UNIQUE (listing_id, starter_id)
+     )`,
+    `CREATE TABLE IF NOT EXISTS messages (
+       id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+       conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+       sender_id       UUID REFERENCES users(id),
+       body            TEXT NOT NULL,
+       read_at         TIMESTAMPTZ,
+       created_at      TIMESTAMPTZ DEFAULT NOW()
+     )`,
+    `CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages (conversation_id, created_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_conv_users ON conversations (starter_id, owner_id)`,
+
+    // Owner settings (e.g. mailing address shown in marketing emails)
+    `CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ DEFAULT NOW())`,
+
+    // Email / text campaigns sent by the owner
+    `CREATE TABLE IF NOT EXISTS campaigns (
+       id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+       channel     TEXT NOT NULL,
+       audience    TEXT NOT NULL,
+       subject     TEXT,
+       body        TEXT NOT NULL,
+       recipients  INTEGER DEFAULT 0,
+       sent        INTEGER DEFAULT 0,
+       failed      INTEGER DEFAULT 0,
+       created_by  UUID,
+       created_at  TIMESTAMPTZ DEFAULT NOW()
+     )`,
   ]
   /* Emergency cleanup: set DATA_RESET=parcels on Railway to empty the county property table and free disk space */
   if (process.env.DATA_RESET === 'parcels') {

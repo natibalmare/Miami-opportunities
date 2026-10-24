@@ -718,7 +718,7 @@ export default function ReportPage() {
             <button className="paywall-btn-gold" onClick={() => user ? setPayOpen(true) : setAuthOpen(true)}>
               View Full Report
             </button>
-            <button className="paywall-btn-ghost" onClick={() => nav('/account')}>
+            <button className="paywall-btn-ghost" onClick={() => nav('/pricing')}>
               Membership Plans
             </button>
           </div>

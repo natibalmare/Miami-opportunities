@@ -60,4 +60,64 @@ async function sendPasswordResetEmail(to, firstName, code) {
   }
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail }
+const SITE = () => (process.env.FRONTEND_URL || 'https://miamiopportunities.com').replace(/\/$/, '')
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+
+function shell(inner, footer = '') {
+  return `
+    <div style="font-family: Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 28px; color: #1A2828;">
+      <div style="text-align: center; margin-bottom: 22px;">
+        <div style="font-size: 22px; letter-spacing: 4px; color: #0A3D3A;">MIAMI</div>
+        <div style="font-size: 11px; letter-spacing: 3px; color: #C4A46B;">OPPORTUNITIES</div>
+      </div>
+      ${inner}
+      <div style="font-size: 11px; color: #8A9696; margin-top: 28px; border-top: 1px solid #E8E4D8; padding-top: 12px; line-height: 1.6;">${footer}</div>
+    </div>`
+}
+
+/* New in-app message — no contact details are included */
+async function sendNewMessageEmail(to, firstName, fromName, listingTitle, preview) {
+  try {
+    await resend.emails.send({
+      from: FROM, to,
+      subject: `New message about ${listingTitle}`,
+      html: shell(`
+        <p style="font-size: 14px;">Hi ${esc(firstName) || 'there'},</p>
+        <p style="font-size: 14px;"><strong>${esc(fromName)}</strong> sent you a message on Miami Opportunities about <strong>${esc(listingTitle)}</strong>:</p>
+        <div style="background: #F5EDD8; border-radius: 6px; padding: 14px 16px; font-size: 14px; margin: 14px 0;">${esc(preview).slice(0, 400)}</div>
+        <p><a href="${SITE()}/messages" style="display: inline-block; background: #0A3D3A; color: #D9BC88; padding: 11px 20px; border-radius: 4px; text-decoration: none; font-size: 13px;">Reply on MO →</a></p>`,
+        'For your safety, keep conversations on Miami Opportunities until you are comfortable sharing contact details.'),
+    })
+    return true
+  } catch (e) {
+    console.error('Resend error:', e.message)
+    return false
+  }
+}
+
+/* Owner campaigns: sends one email per person (batches of 100), each with its own unsubscribe link */
+async function sendCampaignEmails(recipients, subject, bodyText, footerAddress) {
+  let sent = 0, failed = 0
+  const paragraphs = esc(bodyText).split(/\n{2,}/).map(p => `<p style="font-size: 14px; line-height: 1.6;">${p.replace(/\n/g, '<br>')}</p>`).join('')
+  for (let i = 0; i < recipients.length; i += 100) {
+    const chunk = recipients.slice(i, i + 100)
+    const emails = chunk.map(r => ({
+      from: FROM, to: r.email, subject,
+      headers: { 'List-Unsubscribe': `<${r.unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+      html: shell(`<p style="font-size: 14px;">Hi ${esc(r.firstName) || 'there'},</p>${paragraphs}`,
+        `You are receiving this because you have a Miami Opportunities account.<br>${esc(footerAddress)}<br>
+         <a href="${r.unsubscribeUrl}" style="color: #8A9696;">Unsubscribe from MO emails</a>`),
+    }))
+    try {
+      const out = await resend.batch.send(emails)
+      if (out?.error) throw new Error(out.error.message || 'Batch failed')
+      sent += chunk.length
+    } catch (e) {
+      console.error('Campaign batch failed:', e.message)
+      failed += chunk.length
+    }
+  }
+  return { sent, failed }
+}
+
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendNewMessageEmail, sendCampaignEmails }

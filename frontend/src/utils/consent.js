@@ -1,0 +1,1 @@
+export const SMS_CONSENT = 'I agree to receive marketing and account text messages from Miami Opportunities at the phone number provided. Consent is not a condition of purchase. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.'

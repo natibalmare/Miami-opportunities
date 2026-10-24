@@ -40,6 +40,8 @@ export function AuthProvider({ children }) {
     localStorage.setItem('mo_token', userToken)
   }
 
+  const refreshUser = () => api.me().then(u => setUser(u)).catch(() => {})
+
   const logout = () => {
     if (localStorage.getItem('mo_token')) api.logout().catch(() => {})
     setUser(null); setToken(null)
@@ -47,7 +49,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, loading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

@@ -70,8 +70,26 @@ export const api = {
   addNote:     (id, text) => req(`/api/leads/${id}/notes`, { method: 'POST', body: { text } }),
   logContact:  (id, d) => req(`/api/leads/${id}/contact`, { method: 'POST', body: d }),
 
-  getBoard:    () => req('/api/board'),
+  getBoard:    (params = {}) => req(`/api/board?${new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v !== null && v !== undefined))}`),
+  getListing:  (id) => req(`/api/board/${id}`),
+  myListings:  () => req('/api/board/mine'),
   postListing: (d) => req('/api/board', { method: 'POST', body: d }),
+  updateListing: (id, d) => req(`/api/board/${id}`, { method: 'PATCH', body: d }),
+
+  startConversation: (listingId, body) => req('/api/messages/start', { method: 'POST', body: { listingId, body } }),
+  getConversations:  () => req('/api/messages'),
+  getConversation:   (id) => req(`/api/messages/${id}`),
+  sendMessage:       (id, body) => req(`/api/messages/${id}`, { method: 'POST', body: { body } }),
+  unreadCount:       () => req('/api/messages/unread-count'),
+
+  updateProfile: (d) => req('/api/auth/profile', { method: 'PATCH', body: d }),
+
+  adminOverview:  () => req('/api/admin/overview'),
+  adminUsers:     (q = '') => req(`/api/admin/users?q=${encodeURIComponent(q)}`),
+  adminCampaigns: () => req('/api/admin/campaigns'),
+  adminSaveSettings: (d) => req('/api/admin/settings', { method: 'PUT', body: d }),
+  adminPreview:   (d) => req('/api/admin/campaigns/preview', { method: 'POST', body: d }),
+  adminSend:      (d) => req('/api/admin/campaigns/send', { method: 'POST', body: d }),
 
   getSources: () => req('/api/sources'),
   getSourceCatalog: () => req('/api/sources/catalog'),

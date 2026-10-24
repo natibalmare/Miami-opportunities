@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AuthModal from '../components/AuthModal'
+import { useAuth } from '../utils/AuthContext'
 import AddressSearchInput from '../components/AddressSearchInput'
 
 const RECENT = [
@@ -14,6 +15,7 @@ export default function SearchPage() {
   const [q, setQ] = useState('')
   const [chip, setChip] = useState('Address')
   const [authOpen, setAuthOpen] = useState(false)
+  const { user } = useAuth()
   const nav = useNavigate()
 
   const doSearch = (query) => {
@@ -27,6 +29,9 @@ export default function SearchPage() {
 
       {/* LOGO HERO */}
       <div style={{ textAlign: 'center', marginBottom: 40 }}>
+        <div style={{ width: 54, height: 72, margin: '0 auto 14px', background: '#0A3D3A', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <img src="/mo-icon.png" alt="" style={{ height: 56 }} />
+        </div>
         <div style={{ fontSize: 42, fontWeight: 500, color: '#0A3D3A', letterSpacing: 8, lineHeight: 1, marginBottom: 4 }}>MIAMI</div>
         <div style={{ fontSize: 12, fontWeight: 400, color: '#C4A46B', letterSpacing: 5, textTransform: 'uppercase', marginBottom: 10 }}>OPPORTUNITIES</div>
         <div style={{ width: 40, height: 1, background: '#C4A46B', margin: '0 auto 12px' }} />
@@ -78,7 +83,7 @@ export default function SearchPage() {
 
       {/* CTAs */}
       <div style={{ textAlign: 'center', margin: '16px 0', display: 'flex', gap: 8, justifyContent: 'center' }}>
-        <button className="btn btn-outline btn-sm" onClick={() => setAuthOpen(true)}>Create Free Account</button>
+        {!user && <button className="btn btn-outline btn-sm" onClick={() => setAuthOpen(true)}>Create Free Account</button>}
         <button className="btn btn-gold btn-sm" onClick={() => nav('/criteria')}>Search by Criteria</button>
         <button className="btn btn-outline btn-sm" onClick={() => nav('/report?q=332+NW+35th+St+Miami&sample=1')}>View Sample Report</button>
       </div>
@@ -106,7 +111,7 @@ export default function SearchPage() {
         This tool uses legally accessible public records only. Data is for lawful real estate research and does not constitute legal advice, a title opinion, or an appraisal. Consult a licensed Florida real estate attorney and title company before any offer. Do not use to harass or pressure property owners.
       </div>
 
-      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      {authOpen && <AuthModal initialMode="register" onClose={() => setAuthOpen(false)} />}
     </div>
   )
 }
