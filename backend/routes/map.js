@@ -7,7 +7,7 @@ const { COUNTIES, PROPERTY_TYPES, useLabel } = require('../config/counties')
 const { scoreMany } = require('../utils/opportunityScore')
 
 const MAX_SPAN = 0.08          // degrees (~8 km) — zoom in further to load parcels
-const SCAN_LIMIT = 3000
+const SCAN_LIMIT = 5000
 const RETURN_LIMIT = 800
 
 const LISTS = {
@@ -40,6 +40,51 @@ router.get('/areas', async (req, res) => {
   }
 })
 
+const SELECT_COLS = `pt.lat, pt.lng, p.county_no, p.parcel_id, p.phy_addr1, p.phy_city, p.phy_zip, p.dor_uc,
+  p.just_value, p.living_sqft, p.year_built, p.own_name, p.own_state, p.homestead, p.absentee, p.sale_date1, p.beds, p.baths`
+
+/* Street address without the unit number: "100 BISCAYNE BLVD #2207" → "100 BISCAYNE BLVD" */
+const baseAddress = (a) => String(a || '').replace(/\s+(#|UNIT|APT|STE|SUITE|PH|BLDG|NO\.?|U)\s*[\w-]+.*$/i, '').trim()
+const unitOf = (a) => { const m = String(a || '').match(/\s(?:#|UNIT|APT|STE|SUITE|PH|U)\s*([\w-]+)/i); return m ? m[1] : null }
+
+async function toPoints(rows) {
+  const scores = await scoreMany(rows.map(x => ({
+    countyNo: x.county_no, parcelId: x.parcel_id, zip: x.phy_zip, useCode: x.dor_uc,
+    value: x.just_value ? Number(x.just_value) : null, livingSqft: x.living_sqft ? Number(x.living_sqft) : null,
+    yearBuilt: x.year_built, owner: x.own_name, ownerState: x.own_state,
+    homestead: x.homestead, absentee: x.absentee, recentSale: !!x.sale_date1,
+  })))
+  return rows.map((x, i) => ({
+    lat: x.lat, lng: x.lng,
+    score: scores[i].score, label: scores[i].label,
+    address: x.phy_addr1, unit: unitOf(x.phy_addr1), city: x.phy_city, zip: x.phy_zip,
+    county: COUNTIES[x.county_no]?.name,
+    type: useLabel(x.dor_uc),
+    value: x.just_value ? Number(x.just_value) : null,
+    livingSqft: x.living_sqft ? Number(x.living_sqft) : null,
+    yearBuilt: x.year_built, beds: x.beds, baths: x.baths !== null ? Number(x.baths) : null,
+    absentee: x.absentee, homestead: x.homestead,
+    reportKey: x.county_no === 23 ? x.parcel_id : `parcel:${x.county_no}:${x.parcel_id}`,
+  }))
+}
+
+/* GET /api/map/building?lat=&lng= — every unit in a condo / co-op building, highest score first */
+router.get('/building', async (req, res) => {
+  try {
+    const lat = num(req.query.lat), lng = num(req.query.lng)
+    if (lat === null || lng === null) return res.status(400).json({ error: 'Location required' })
+    const d = 0.000006
+    const r = await query(
+      `SELECT ${SELECT_COLS} FROM parcel_points pt JOIN parcels p ON p.county_no = pt.county_no AND p.parcel_id = pt.parcel_id
+        WHERE pt.lat BETWEEN $1 AND $2 AND pt.lng BETWEEN $3 AND $4 LIMIT 2000`, [lat - d, lat + d, lng - d, lng + d])
+    const units = (await toPoints(r.rows)).filter(u => u.address).sort((a, b) => b.score - a.score)
+    res.json({ address: baseAddress(units[0]?.address), city: units[0]?.city, total: units.length, units })
+  } catch (e) {
+    console.error('Map building failed:', e.message)
+    res.status(500).json({ error: 'Building data unavailable' })
+  }
+})
+
 router.get('/parcels', async (req, res) => {
   try {
     const minLat = num(req.query.minLat), maxLat = num(req.query.maxLat)
@@ -59,9 +104,7 @@ router.get('/parcels', async (req, res) => {
     }
 
     const r = await query(
-      `SELECT pt.lat, pt.lng, p.county_no, p.parcel_id, p.phy_addr1, p.phy_city, p.phy_zip, p.dor_uc,
-              p.just_value, p.living_sqft, p.year_built, p.own_name, p.own_state, p.homestead, p.absentee,
-              p.sale_date1, p.beds, p.baths
+      `SELECT ${SELECT_COLS}
          FROM parcel_points pt
          JOIN parcels p ON p.county_no = pt.county_no AND p.parcel_id = pt.parcel_id
         WHERE ${where.join(' AND ')}
@@ -69,28 +112,31 @@ router.get('/parcels', async (req, res) => {
       params
     )
 
-    const scores = await scoreMany(r.rows.map(x => ({
-      countyNo: x.county_no, parcelId: x.parcel_id, zip: x.phy_zip, useCode: x.dor_uc,
-      value: x.just_value ? Number(x.just_value) : null, livingSqft: x.living_sqft ? Number(x.living_sqft) : null,
-      yearBuilt: x.year_built, owner: x.own_name, ownerState: x.own_state,
-      homestead: x.homestead, absentee: x.absentee, recentSale: !!x.sale_date1,
-    })))
-
     const minScore = num(req.query.minScore) || 0
-    const points = r.rows.map((x, i) => ({
-      lat: x.lat, lng: x.lng,
-      score: scores[i].score, label: scores[i].label,
-      address: x.phy_addr1, city: x.phy_city, zip: x.phy_zip,
-      county: COUNTIES[x.county_no]?.name,
-      type: useLabel(x.dor_uc),
-      value: x.just_value ? Number(x.just_value) : null,
-      livingSqft: x.living_sqft ? Number(x.living_sqft) : null,
-      yearBuilt: x.year_built, beds: x.beds, baths: x.baths !== null ? Number(x.baths) : null,
-      reportKey: x.county_no === 23 ? x.parcel_id : `parcel:${x.county_no}:${x.parcel_id}`,
-    }))
-      .filter(p => p.address && p.score >= minScore)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, RETURN_LIMIT)
+    const units = await toPoints(r.rows)
+
+    /* Condo / co-op towers: units share one location — show one dot per building */
+    const groups = new Map()
+    for (const u of units) {
+      if (!u.address) continue
+      const k = `${u.lat.toFixed(5)},${u.lng.toFixed(5)}`
+      if (!groups.has(k)) groups.set(k, [])
+      groups.get(k).push(u)
+    }
+    const points = []
+    for (const list of groups.values()) {
+      const passing = list.filter(u => u.score >= minScore)
+      if (!passing.length) continue
+      if (list.length === 1) { points.push(list[0]); continue }
+      const top = passing.reduce((a, b) => (b.score > a.score ? b : a))
+      points.push({
+        building: true, lat: top.lat, lng: top.lng, units: list.length, matching: passing.length,
+        score: top.score, label: top.label, address: baseAddress(top.address), city: top.city, zip: top.zip,
+        county: top.county, type: top.type,
+      })
+    }
+    points.sort((a, b) => b.score - a.score)
+    points.splice(RETURN_LIMIT)
 
     res.json({ points, truncated: r.rows.length >= SCAN_LIMIT })
   } catch (e) {

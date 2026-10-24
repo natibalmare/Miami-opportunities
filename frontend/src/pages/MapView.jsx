@@ -123,15 +123,52 @@ export default function MapView() {
       m.addLayer({
         id: 'parcels', type: 'circle', source: 'parcels',
         paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 3.5, 16, 7, 18, 10],
+          'circle-radius': ['case', ['==', ['get', 'building'], true],
+            ['interpolate', ['linear'], ['zoom'], 13, 7, 16, 12, 18, 16],
+            ['interpolate', ['linear'], ['zoom'], 13, 3.5, 16, 7, 18, 10]],
           'circle-color': ['step', ['get', 'score'], '#9AA4A3', 26, '#3E8E8A', 51, '#C8A84B', 76, '#B84040'],
-          'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 1.2, 'circle-opacity': 0.92,
+          'circle-stroke-color': ['case', ['==', ['get', 'building'], true], '#0A3D3A', '#FFFFFF'],
+          'circle-stroke-width': ['case', ['==', ['get', 'building'], true], 2.5, 1.2], 'circle-opacity': 0.92,
         },
+      })
+      /* Unit count on building dots */
+      m.addLayer({
+        id: 'building-count', type: 'symbol', source: 'parcels', filter: ['==', ['get', 'building'], true],
+        layout: { 'text-field': ['to-string', ['get', 'units']], 'text-size': 11, 'text-font': ['Noto Sans Bold'], 'text-allow-overlap': true },
+        paint: { 'text-color': '#FFFFFF' },
       })
       m.on('mouseenter', 'parcels', () => { m.getCanvas().style.cursor = 'pointer' })
       m.on('mouseleave', 'parcels', () => { m.getCanvas().style.cursor = '' })
       m.on('click', 'parcels', (e) => {
         const p = e.features[0].properties
+        if (p.building === true || p.building === 'true') {
+          const el = document.createElement('div')
+          el.style.cssText = 'font-family:inherit;width:270px'
+          el.innerHTML = `<div style="font-size:13.5px;font-weight:600;color:#0A3D3A">${esc(p.address)}</div>
+            <div style="font-size:11.5px;color:#5A6A69;margin:2px 0 8px">${esc(p.units)} units · ${esc([p.city, p.zip].filter(x => x && x !== 'null').join(', '))}</div>
+            <div style="font-size:12px;color:#7A8584">Loading units…</div>`
+          const pop = new maplibregl.Popup({ offset: 12, maxWidth: '300px' }).setLngLat(e.features[0].geometry.coordinates).setDOMContent(el).addTo(m)
+          api.mapBuilding(p.lat, p.lng).then(b => {
+            const list = document.createElement('div')
+            list.style.cssText = 'max-height:260px;overflow-y:auto;border-top:1px solid #EEEAE0;margin-top:4px'
+            b.units.forEach(u => {
+              const row = document.createElement('div')
+              row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid #F2EFE6;cursor:pointer'
+              const facts = [u.beds ? `${u.beds} bd` : '', u.baths ? `${u.baths} ba` : '', u.livingSqft ? `${u.livingSqft.toLocaleString()} sqft` : '', u.value ? money(u.value) : ''].filter(Boolean).join(' · ')
+              row.innerHTML = `<div><div style="font-size:12.5px;font-weight:600;color:#1A2828">${u.unit ? 'Unit ' + esc(u.unit) : esc(u.address)}</div>
+                <div style="font-size:10.5px;color:#7A8584">${esc(facts)}${u.absentee ? ' · absentee owner' : ''}</div></div>
+                <div style="min-width:34px;text-align:center;font-size:12px;font-weight:700;color:#fff;border-radius:12px;padding:2px 6px;background:${u.score >= 76 ? '#B84040' : u.score >= 51 ? '#C8A84B' : u.score >= 26 ? '#3E8E8A' : '#9AA4A3'}">${esc(u.score)}</div>`
+              row.onclick = () => nav(`/report?q=${encodeURIComponent(u.reportKey)}`)
+              list.appendChild(row)
+            })
+            el.lastElementChild.remove()
+            const hint = document.createElement('div')
+            hint.style.cssText = 'font-size:10.5px;color:#8A6A2E;margin:2px 0 4px'
+            hint.textContent = 'Sorted by Opportunity Score · tap a unit for its report'
+            el.appendChild(hint); el.appendChild(list)
+          }).catch(() => { el.lastElementChild.textContent = 'Could not load the units. Try again.' })
+          return
+        }
         const facts = [p.type, p.beds && p.beds !== 'null' ? `${p.beds} bd` : '', p.baths && p.baths !== 'null' ? `${p.baths} ba` : '',
           p.livingSqft && p.livingSqft !== 'null' ? `${Number(p.livingSqft).toLocaleString()} sqft` : '',
           p.yearBuilt && p.yearBuilt !== 'null' && Number(p.yearBuilt) > 0 ? `Built ${p.yearBuilt}` : ''].filter(Boolean).join(' · ')
@@ -217,7 +254,7 @@ export default function MapView() {
             {status.error ? <span style={{ color: '#B84040' }}>{status.error}</span>
               : status.zoomIn ? 'Zoom in to see properties'
               : status.loading ? 'Loading properties…'
-              : `${status.count.toLocaleString()} properties shown${status.count >= 800 ? ' (top scores — zoom in for more)' : ''}`}
+              : `${status.count.toLocaleString()} properties & buildings shown${status.count >= 800 ? ' (top scores — zoom in for more)' : ''}`}
           </div>
         </div>
       </div>

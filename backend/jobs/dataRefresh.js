@@ -8,6 +8,7 @@ const { findLatestFile, importCounty } = require('../adapters/fdorRoll')
 const { enrichMiamiDade } = require('../adapters/mdpaEnrich')
 const { findLatestPinFile, importPins } = require('../adapters/fdorPins')
 const publicRecords = require('../adapters/publicRecords')
+const { assignCondoPoints } = require('../adapters/condoPoints')
 
 const LOCK_KEY = 778899
 /* Railway Hobby volumes max out at 5 GB — stop loading well before the disk fills */
@@ -86,6 +87,9 @@ async function runOnce() {
         console.error(`[data] ${county.name}: refresh error —`, e.message)
       }
     }
+    /* Condo / co-op units: place them at their building so the map shows one dot per building */
+    try { if (!(await dbTooBig())) await assignCondoPoints() } catch (e) { console.error('[map] condo placement error —', e.message) }
+
     /* Map area search: cities and subdivisions with their center points */
     try { await buildAreas() } catch (e) { console.error('[areas] build error —', e.message) }
 
