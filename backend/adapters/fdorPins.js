@@ -97,12 +97,14 @@ async function importPins(county, file) {
     if (!shp || !dbf) throw new Error('Shapefile parts missing in ZIP')
     const extract = (entry, name) => new Promise((resolve, reject) => {
       const p = path.join(dir, name)
-      entry.stream().pipe(fs.createWriteStream(p)).on('finish', () => resolve(p)).on('error', reject)
+      const src = entry.stream()
+      src.on('error', reject)
+      src.pipe(fs.createWriteStream(p)).on('finish', () => resolve(p)).on('error', reject)
     })
+    const wkt = prj ? (await prj.buffer()).toString('utf8') : null
     const shpPath = await extract(shp, 'p.shp')
     const dbfPath = await extract(dbf, 'p.dbf')
-    fs.promises.unlink(zipPath).catch(() => {})
-    const wkt = prj ? (await prj.buffer()).toString('utf8') : null
+    await fs.promises.unlink(zipPath).catch(() => {})
     const toWgs = wkt ? proj4(wkt, 'EPSG:4326') : null
 
     const source = await shapefile.open(shpPath, dbfPath, { encoding: 'latin1' })
