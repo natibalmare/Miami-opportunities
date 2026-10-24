@@ -181,3 +181,75 @@ export function CountyRecords({ countyNo, parcelId, compact = false, onUnlock })
     </div>
   )
 }
+
+/* Recorded documents (deeds, mortgages, liens, lis pendens, judgments, probate) — Broward for now */
+export function OfficialRecords({ countyNo, parcelId, compact = false, onUnlock }) {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let off = false
+    setData(null); setError('')
+    if (!countyNo || !parcelId || !localStorage.getItem('mo_token')) return
+    api.officialRecords(countyNo, parcelId).then(d => { if (!off) setData(d) }).catch(e => { if (!off) setError(e.message) })
+    return () => { off = true }
+  }, [countyNo, parcelId])
+
+  if (!data || !data.covered) return (!compact && error) ? <div className="alert alert-warning">{error}</div> : null
+  const s = data.summary
+  const flags = [
+    s.lisPendens && `${s.lisPendens} lis pendens recorded (possible foreclosure or lawsuit)`,
+    s.judgments && `${s.judgments} judgment${s.judgments > 1 ? 's' : ''} recorded`,
+    s.liens && `${s.liens} lien${s.liens > 1 ? 's' : ''} recorded`,
+    s.probate && 'Probate filing recorded',
+    s.taxDeeds && 'Tax deed recorded',
+  ].filter(Boolean)
+
+  if (compact) {
+    if (!s.total) return null
+    return (
+      <div className={`alert ${flags.length ? 'alert-warning' : 'alert-info'}`} style={{ marginBottom: 14 }}>
+        <div style={{ width: '100%' }}>
+          <strong>{flags.length ? 'Official records — recent filings to review' : 'Official records'}</strong>
+          {flags.length > 0 && <ul style={{ paddingLeft: 18, marginTop: 6, fontSize: 12 }}>{flags.map((f, i) => <li key={i}>{f}</li>)}</ul>}
+          <div style={{ fontSize: 11.5, color: '#5A6A69', marginTop: 6 }}>
+            {s.total} recorded document{s.total > 1 ? 's' : ''} found{s.mortgages ? ` · ${s.mortgages} mortgage${s.mortgages > 1 ? 's' : ''}${s.openMortgages ? `, ${s.openMortgages} with no release on file` : ''}` : ''}
+          </div>
+          {data.locked && onUnlock && <button className="btn btn-gold btn-sm" style={{ marginTop: 10 }} onClick={onUnlock}>See every document, party and amount →</button>}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div className="gold-rule"><div className="gold-rule-line" /><div className="gold-rule-text">Official Records</div><div className="gold-rule-line rev" /></div>
+      {flags.length > 0 && <div className="alert alert-warning" style={{ marginBottom: 10 }}><ul style={{ paddingLeft: 18, margin: 0, fontSize: 12 }}>{flags.map((f, i) => <li key={i}>{f}</li>)}</ul></div>}
+      {data.documents.length ? (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead><tr><th>Recorded</th><th>Document</th><th>From</th><th>To</th><th>Amount</th><th>Instrument</th></tr></thead>
+            <tbody>
+              {data.documents.map(d => (
+                <tr key={d.instrument}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(d.date)}</td>
+                  <td style={{ fontWeight: 600 }}>
+                    {d.typeLabel}
+                    {d.type === 'M' && <div style={{ fontSize: 10.5, fontWeight: 400, color: d.releasedBy.length ? '#2E7D6B' : '#8A6A2E' }}>{d.releasedBy.length ? `Released ${fmtDate(d.releasedBy[0].date)}` : 'No release on file'}</div>}
+                    {d.caseNumber && <div style={{ fontSize: 10.5, fontWeight: 400, color: '#7A8584' }}>Case {d.caseNumber}</div>}
+                  </td>
+                  <td style={{ fontSize: 11.5 }}>{d.from || '—'}</td>
+                  <td style={{ fontSize: 11.5 }}>{d.to || '—'}</td>
+                  <td>{d.amount ? '$' + d.amount.toLocaleString() : '—'}</td>
+                  <td style={{ fontSize: 11, color: '#7A8584' }}>{d.instrument}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : <div style={{ fontSize: 13, color: '#7A8584' }}>No recorded documents found for this parcel in the loaded period.</div>}
+      <div style={{ fontSize: 10.5, color: '#9A9488', marginTop: 8, lineHeight: 1.5 }}>
+        From the Broward County Clerk’s public index (2024 to today). Amounts are as recorded. "No release on file" does not prove a loan is unpaid — confirm payoff with a title company before any offer.
+      </div>
+    </div>
+  )
+}

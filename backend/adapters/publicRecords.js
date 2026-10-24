@@ -257,7 +257,27 @@ async function flagsFor(pairs) {
         WHERE (county_no, parcel_id) IN (SELECT * FROM unnest($1::smallint[], $2::text[]))
         GROUP BY 1, 2`,
       [valid.map(p => p.countyNo), valid.map(p => String(p.parcelId).replace(/\D/g, ''))])
-    return new Map(r.rows.map(x => [`${x.county_no}|${x.parcel_id}`, x]))
+    const out = new Map(r.rows.map(x => [`${x.county_no}|${x.parcel_id}`, x]))
+    /* Broward official records: recent lis pendens, judgments, liens, probate (parcel ids keep their letters there) */
+    const bro = pairs.filter(p => Number(p.countyNo) === 16 && p.parcelId)
+    if (bro.length) {
+      try {
+        const o = await query(
+          `SELECT op.parcel_id,
+                  COUNT(*) FILTER (WHERE d.doc_type = 'LP')::int AS lp,
+                  COUNT(*) FILTER (WHERE d.doc_type IN ('FJ','CFJ','J'))::int AS judg,
+                  COUNT(*) FILTER (WHERE d.doc_type IN ('LN','L','CL','TL','FTL','CEL'))::int AS orliens,
+                  COUNT(*) FILTER (WHERE d.doc_type = 'PRO')::int AS probate
+             FROM or_parcels op JOIN or_docs d ON d.county_no = op.county_no AND d.instr = op.instr
+            WHERE op.county_no = 16 AND op.parcel_id = ANY($1::text[]) AND d.rec_date >= CURRENT_DATE - INTERVAL '2 years'
+            GROUP BY 1`, [bro.map(p => String(p.parcelId).toUpperCase().replace(/[^0-9A-Z]/g, ''))])
+        for (const x of o.rows) {
+          const key = `16|${x.parcel_id.replace(/\D/g, '')}`
+          out.set(key, { ...(out.get(key) || {}), lp: x.lp, judg: x.judg, orliens: x.orliens, probate: x.probate })
+        }
+      } catch { /* official records not loaded yet */ }
+    }
+    return out
   } catch (e) {
     return new Map()
   }

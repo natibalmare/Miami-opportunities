@@ -93,6 +93,10 @@ function scoreProperty(p, zipPpsf) {
     if (f.liens > 0) add(15, 'Code enforcement lien recorded')
     if (f.code > 0) add(10, 'Open code compliance case')
     if (f.recert > 0) add(8, 'Building recertification not completed')
+    if (f.lp > 0) add(25, 'Lis pendens recorded (possible foreclosure or lawsuit)')
+    if (f.probate > 0) add(15, 'Probate filing recorded')
+    if (f.judg > 0) add(10, 'Judgment recorded')
+    if (f.orliens > 0) add(10, 'Lien recorded')
   }
 
   if (p.recentSale) add(-10, 'Sold in the last 1–2 years')

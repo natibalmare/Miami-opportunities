@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { lookupProperty } from '../utils/mockDb'
 import { api } from '../utils/api'
-import { StreetViewPhoto, OwnerContact, CountyRecords } from '../components/ReportExtras'
+import { StreetViewPhoto, OwnerContact, CountyRecords, OfficialRecords } from '../components/ReportExtras'
 
 function mapMdpaToProperty(r) {
   if (!r) return null
@@ -365,6 +365,7 @@ export default function ReportPage() {
             <div>
               {user && !isSample && p.address && <StreetViewPhoto address={`${p.address}, ${p.city}, FL ${p.zip || ''}`} />}
               {user && !isSample && <CountyRecords compact countyNo={p.countyNo} parcelId={p.folio} onUnlock={() => unlocked ? setTab('Permits') : setPayOpen(true)} />}
+              {user && !isSample && <OfficialRecords compact countyNo={p.countyNo} parcelId={p.folio} onUnlock={() => unlocked ? setTab('Ownership') : setPayOpen(true)} />}
               <div className="grid-4" style={{ marginBottom: 16 }}>
                 {[
                   ['Year Built', p.yearBuilt],
@@ -420,6 +421,7 @@ export default function ReportPage() {
               {(unlocked || user?.isAdmin) && !isSample && (
                 <OwnerContact folio={p.folio} street={p.address} city={p.city} zip={p.zip} ownerType={p.owner?.type} />
               )}
+              {!isSample && <OfficialRecords countyNo={p.countyNo} parcelId={p.folio} />}
               <div className="gold-rule"><div className="gold-rule-line" /><div className="gold-rule-text">Mortgage & Equity Analysis</div><div className="gold-rule-line rev" /></div>
               <div className="grid-2" style={{ marginBottom: 16 }}>
                 <div className="card" style={{ border: '1px solid #EDE8DC' }}>

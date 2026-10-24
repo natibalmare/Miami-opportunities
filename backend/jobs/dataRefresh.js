@@ -9,6 +9,7 @@ const { enrichMiamiDade } = require('../adapters/mdpaEnrich')
 const { findLatestPinFile, importPins } = require('../adapters/fdorPins')
 const publicRecords = require('../adapters/publicRecords')
 const { assignCondoPoints } = require('../adapters/condoPoints')
+const { syncBroward } = require('../adapters/browardRecords')
 
 const LOCK_KEY = 778899
 /* Railway Hobby volumes max out at 5 GB — stop loading well before the disk fills */
@@ -96,6 +97,9 @@ async function runOnce() {
 
     /* County & city records (code cases, liens, violations) — small, refreshed every run */
     try { await publicRecords.syncAll() } catch (e) { console.error('[records] sync error —', e.message) }
+
+    /* Broward official records (deeds, mortgages, liens, lis pendens, judgments) from the Clerk's public files */
+    try { await syncBroward(dbTooBig) } catch (e) { console.error('[or] Broward sync error —', e.message) }
   } finally {
     await lockClient.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {})
     lockClient.release()
