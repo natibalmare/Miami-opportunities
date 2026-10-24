@@ -44,8 +44,19 @@ const SELECT_COLS = `pt.lat, pt.lng, p.county_no, p.parcel_id, p.phy_addr1, p.ph
   p.just_value, p.living_sqft, p.year_built, p.own_name, p.own_state, p.homestead, p.absentee, p.sale_date1, p.beds, p.baths`
 
 /* Street address without the unit number: "100 BISCAYNE BLVD #2207" → "100 BISCAYNE BLVD" */
-const baseAddress = (a) => String(a || '').replace(/\s+(#|UNIT|APT|STE|SUITE|PH|BLDG|NO\.?|U)\s*[\w-]+.*$/i, '').trim()
-const unitOf = (a) => { const m = String(a || '').match(/\s(?:#|UNIT|APT|STE|SUITE|PH|U)\s*([\w-]+)/i); return m ? m[1] : null }
+const SUFFIX_RE = /^(\d+\s.*\s(?:ST|AVE|AV|CT|DR|RD|BLVD|TER|TERR|PL|WAY|LN|CIR|PKWY|HWY|TRL|PT|CSWY|PLZ|SQ|CV|RUN|LOOP|ROW|XING|N|S|E|W|NE|NW|SE|SW))\s+([A-Z]{0,3}-?\d[A-Z0-9-]*)$/i
+const baseAddress = (a) => {
+  const t = String(a || '').trim().replace(/\s+(#|UNIT|APT|STE|SUITE|PH|BLDG|NO\.?|U)\s*[\w-]+.*$/i, '').trim()
+  const m = t.match(SUFFIX_RE)
+  return m ? m[1] : t
+}
+const unitOf = (a) => {
+  const t = String(a || '').trim()
+  const m = t.match(/\s(?:#|UNIT|APT|STE|SUITE|PH|U)\s*([\w-]+)/i)
+  if (m) return m[1]
+  const m2 = t.match(SUFFIX_RE)
+  return m2 ? m2[2] : null
+}
 
 async function toPoints(rows) {
   const scores = await scoreMany(rows.map(x => ({

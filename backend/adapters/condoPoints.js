@@ -5,7 +5,10 @@
 
 const { query } = require('../db/pool')
 
-const BASE = (col) => `regexp_replace(UPPER(${col}), '\\s+(#|UNIT|APT|STE|SUITE|PH|BLDG|NO\\.?|U)\\s*[A-Z0-9-]+.*$', '')`
+/* Building address without the unit: handles "100 BISCAYNE BLVD #2207", "... UNIT 5" and Miami-Dade's "1901 BRICKELL AVE B1409" */
+const SUFFIX = 'ST|AVE|AV|CT|DR|RD|BLVD|TER|TERR|PL|WAY|LN|CIR|PKWY|HWY|TRL|PT|CSWY|PLZ|SQ|CV|RUN|LOOP|ROW|XING|N|S|E|W|NE|NW|SE|SW'
+const BASE = (col) => `regexp_replace(regexp_replace(UPPER(TRIM(${col})), '\\s+(#|UNIT|APT|STE|SUITE|PH|BLDG|NO\\.?|U)\\s*[A-Z0-9-]+.*$', ''),
+  '^([0-9]+\\s.*\\s(${SUFFIX}))\\s+[A-Z]{0,3}-?[0-9][A-Z0-9-]*$', '\\1')`
 
 async function assignCondoPoints() {
   const t0 = Date.now()
