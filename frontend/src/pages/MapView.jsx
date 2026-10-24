@@ -17,6 +17,43 @@ const PLACES = [
   ['West Palm Beach', 26.7153, -80.0534], ['Boca Raton', 26.3683, -80.1289],
 ]
 
+/* Search every city and subdivision in the three counties (plus the featured neighborhoods) */
+function AreaSearch({ onPick }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const [found, setFound] = useState([])
+  useEffect(() => {
+    const t = q.trim()
+    if (t.length < 2) { setFound([]); return }
+    let off = false
+    const id = setTimeout(() => api.mapAreas(t).then(r => { if (!off) setFound(r.areas || []) }).catch(() => {}), 250)
+    return () => { off = true; clearTimeout(id) }
+  }, [q])
+  const featured = PLACES.filter(([n]) => !q.trim() || n.toLowerCase().includes(q.trim().toLowerCase()))
+    .map(([name, lat, lng]) => ({ name, lat, lng, kind: 'featured' }))
+  const items = [...featured, ...found.filter(a => !featured.some(f => f.name.toLowerCase() === a.name.toLowerCase()))].slice(0, 18)
+  const pick = (a) => { onPick(a); setQ(a.name); setOpen(false) }
+  return (
+    <div style={{ position: 'relative' }}>
+      <input className="input" value={q} placeholder="Neighborhood, subdivision or city…"
+        onChange={e => { setQ(e.target.value); setOpen(true) }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={e => { if (e.key === 'Enter' && items[0]) { e.preventDefault(); pick(items[0]) } }} />
+      {open && items.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, background: '#fff', border: '1px solid #E0DCD0', borderRadius: 6, marginTop: 2, maxHeight: 300, overflowY: 'auto', boxShadow: '0 6px 18px rgba(0,0,0,0.12)' }}>
+          {items.map(a => (
+            <div key={`${a.kind}|${a.name}|${a.county || ''}`} onMouseDown={() => pick(a)}
+              style={{ padding: '8px 10px', fontSize: 12.5, cursor: 'pointer', borderBottom: '1px solid #F2EFE6' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#F5EDD8'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+              <div style={{ color: '#1A2828' }}>{a.name}</div>
+              <div style={{ fontSize: 10.5, color: '#8A9493' }}>{a.kind === 'featured' ? 'Target neighborhood' : `${a.kind === 'city' ? 'City' : 'Subdivision'} · ${a.county} · ${Number(a.count).toLocaleString()} properties`}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const LISTS = [
   ['', 'All properties'], ['absentee', 'Absentee owners'], ['out-of-state', 'Out-of-state owners'],
   ['trust', 'Trust & estate owned'], ['llc', 'LLC / company owned'], ['landlords', 'Small landlords'],
@@ -145,10 +182,7 @@ export default function MapView() {
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
               <span style={label}>Go to area</span>
-              <select className="input" defaultValue="" onChange={e => { goTo(e.target.value); e.target.value = '' }}>
-                <option value="" disabled>Choose a neighborhood…</option>
-                {PLACES.map(([n]) => <option key={n} value={n}>{n}</option>)}
-              </select>
+              <AreaSearch onPick={(a) => map.current && map.current.flyTo({ center: [a.lng, a.lat], zoom: a.kind === 'city' ? 14 : 16 })} />
             </div>
             <div>
               <span style={label}>Lead list</span>

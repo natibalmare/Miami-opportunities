@@ -87,6 +87,18 @@ function absenteeFlag(r) {
   return true
 }
 
+/* Subdivision / condo name from the short legal description, e.g.
+   "SUNFLOWER MARGATE 82-38 B LOT 245" → "SUNFLOWER MARGATE", "BAHAMA VILLAGE CONDO UNIT G1" → "BAHAMA VILLAGE CONDO".
+   Miami-Dade gets its subdivision from the county appraiser instead. */
+const LEGAL_STOP = /\s+(?:\d+-\d+\s*B\b|PB\s*\d|PLAT\b|LOTS?\b|LT\b|BLK\b|BLOCK\b|UNIT\b|UNITS\b|APT\b|BLDG\b|TR\b|TRACT\b|PARCEL\b|PAR\b|PT\b|PART\b|PER\b|ADD\b\s*\d|SEC\b\s*\d|PH\b\s*\d|\d+\s*-\s*\d+|N\b\s*\d|S\b\s*\d|E\b\s*\d|W\b\s*\d)/
+function subdivisionFromLegal(legal) {
+  const t = String(legal || '').toUpperCase().replace(/\s+/g, ' ').trim()
+  if (!t || /^[\d\s-]/.test(t)) return null
+  const name = t.split(LEGAL_STOP)[0].replace(/[,;.\s]+$/, '').trim()
+  if (name.length < 4 || name.length > 60 || !/[A-Z]{3}/.test(name)) return null
+  return name
+}
+
 function mapRow(r, countyNo, rollType, importId) {
   const parcelId = txt(r.PARCEL_ID)
   if (!parcelId) return null
@@ -119,6 +131,7 @@ function mapRow(r, countyNo, rollType, importId) {
     int(r.ASMNT_YR),
     rollType,
     importId,
+    countyNo === 23 ? null : subdivisionFromLegal(r.S_LEGAL),
   ]
 }
 
@@ -129,14 +142,14 @@ const COLS = [
   ['year_built', 'smallint'], ['eff_year_built', 'smallint'], ['res_units', 'integer'], ['buildings', 'integer'],
   ['homestead', 'boolean'], ['absentee', 'boolean'], ['sale_price1', 'bigint'], ['sale_date1', 'date'],
   ['sale_qual1', 'text'], ['sale_price2', 'bigint'], ['sale_date2', 'date'], ['roll_year', 'smallint'],
-  ['roll_type', 'text'], ['import_id', 'integer'],
+  ['roll_type', 'text'], ['import_id', 'integer'], ['subdivision', 'text'],
 ]
 
 const UPSERT_SQL = `
   INSERT INTO parcels (${COLS.map(c => c[0]).join(', ')})
   SELECT * FROM unnest(${COLS.map((c, i) => `$${i + 1}::${c[1]}[]`).join(', ')})
   ON CONFLICT (county_no, parcel_id) DO UPDATE SET
-  ${COLS.slice(2).map(c => `${c[0]} = EXCLUDED.${c[0]}`).join(', ')}, updated_at = NOW()`
+  ${COLS.slice(2).map(c => c[0] === 'subdivision' ? 'subdivision = COALESCE(EXCLUDED.subdivision, parcels.subdivision)' : `${c[0]} = EXCLUDED.${c[0]}`).join(', ')}, updated_at = NOW()`
 
 async function writeBatch(client, rows) {
   /* The same parcel can appear twice in a file — keep the last one */
@@ -228,4 +241,4 @@ async function importCounty(county, file) {
   }
 }
 
-module.exports = { findLatestFile, importCounty, mapRow, absenteeFlag }
+module.exports = { subdivisionFromLegal, findLatestFile, importCounty, mapRow, absenteeFlag }

@@ -41,6 +41,7 @@ export const api = {
   getRates: () => req('/api/market/rates'),
   getRents: (zip) => req(`/api/market/rents/${encodeURIComponent(zip)}`),
   getCriteriaMeta: () => req('/api/criteria/meta'),
+  mapAreas: (q) => req(`/api/map/areas?q=${encodeURIComponent(q)}`),
   mapParcels: (params) => req(`/api/map/parcels?${new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v !== null && v !== undefined))}`),
   criteriaSearch: (params) => req(`/api/criteria?${new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v !== null && v !== undefined))}`),
   suggestAddresses: (q) => req(`/api/search/suggest?q=${encodeURIComponent(q)}`),

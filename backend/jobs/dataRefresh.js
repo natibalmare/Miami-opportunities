@@ -51,8 +51,13 @@ async function runOnce() {
         if (!file) { console.log(`[data] ${county.name}: no state roll file found`); continue }
 
         const done = await lastDone(county.no, 'fdor-nal')
-        const isNew = !done || done.file_name !== file.name ||
+        let isNew = !done || done.file_name !== file.name ||
           (file.modified && new Date(file.modified) > new Date(done.file_modified || 0))
+        /* One-time reload so Broward and Palm Beach get subdivision names from the legal description */
+        if (!isNew && county.no !== 23) {
+          const hasSub = await query('SELECT 1 FROM parcels WHERE county_no=$1 AND subdivision IS NOT NULL LIMIT 1', [county.no])
+          if (!hasSub.rows.length) { isNew = true; console.log(`[data] ${county.name}: reloading to add subdivision names`) }
+        }
 
         if (isNew) {
           if (await dbTooBig()) break
@@ -81,12 +86,45 @@ async function runOnce() {
         console.error(`[data] ${county.name}: refresh error —`, e.message)
       }
     }
+    /* Map area search: cities and subdivisions with their center points */
+    try { await buildAreas() } catch (e) { console.error('[areas] build error —', e.message) }
+
     /* County & city records (code cases, liens, violations) — small, refreshed every run */
     try { await publicRecords.syncAll() } catch (e) { console.error('[records] sync error —', e.message) }
   } finally {
     await lockClient.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {})
     lockClient.release()
     running = false
+  }
+}
+
+async function buildAreas() {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query('DELETE FROM map_areas')
+    await client.query(`
+      INSERT INTO map_areas (county_no, kind, name, lat, lng, n)
+      SELECT p.county_no, 'subdivision', INITCAP(p.subdivision), AVG(pt.lat), AVG(pt.lng), COUNT(*)
+        FROM parcels p JOIN parcel_points pt ON pt.county_no = p.county_no AND pt.parcel_id = p.parcel_id
+       WHERE p.subdivision IS NOT NULL
+       GROUP BY p.county_no, INITCAP(p.subdivision) HAVING COUNT(*) >= 3
+      ON CONFLICT DO NOTHING`)
+    await client.query(`
+      INSERT INTO map_areas (county_no, kind, name, lat, lng, n)
+      SELECT p.county_no, 'city', INITCAP(p.phy_city), AVG(pt.lat), AVG(pt.lng), COUNT(*)
+        FROM parcels p JOIN parcel_points pt ON pt.county_no = p.county_no AND pt.parcel_id = p.parcel_id
+       WHERE p.phy_city IS NOT NULL AND p.phy_city <> ''
+       GROUP BY p.county_no, INITCAP(p.phy_city) HAVING COUNT(*) >= 20
+      ON CONFLICT DO NOTHING`)
+    await client.query('COMMIT')
+    const n = await client.query('SELECT kind, COUNT(*)::int AS n FROM map_areas GROUP BY 1')
+    console.log('[areas] map areas ready —', n.rows.map(r => `${r.n} ${r.kind === 'city' ? 'cities' : 'subdivisions'}`).join(', '))
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw e
+  } finally {
+    client.release()
   }
 }
 
@@ -97,4 +135,4 @@ function startDataRefresh() {
   setInterval(() => runOnce().catch(e => console.error('[data] refresh failed —', e.message)), DAY)
 }
 
-module.exports = { startDataRefresh, runOnce }
+module.exports = { startDataRefresh, runOnce, buildAreas }

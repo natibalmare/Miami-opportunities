@@ -73,6 +73,11 @@ async function ensureSchema() {
        PRIMARY KEY (county_no, parcel_id)
      )`,
     `CREATE INDEX IF NOT EXISTS idx_parcel_points_latlng ON parcel_points (lat, lng)`,
+    /* Searchable areas for the map: cities and subdivisions with their center point */
+    `CREATE TABLE IF NOT EXISTS map_areas (
+       county_no SMALLINT NOT NULL, kind TEXT NOT NULL, name TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL, n INTEGER NOT NULL,
+       PRIMARY KEY (county_no, kind, name))`,
+    `CREATE INDEX IF NOT EXISTS idx_parcels_subdivision ON parcels (county_no, subdivision) WHERE subdivision IS NOT NULL`,
 
     // History of each county load, so the app knows what is loaded and when
     `CREATE TABLE IF NOT EXISTS data_imports (

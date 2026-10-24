@@ -23,6 +23,23 @@ const LISTS = {
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null }
 
+/* GET /api/map/areas?q= — cities and subdivisions matching the text, with their center point */
+router.get('/areas', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim().slice(0, 60)
+    if (q.length < 2) return res.json({ areas: [] })
+    const r = await query(
+      `SELECT county_no, kind, name, lat, lng, n FROM map_areas
+        WHERE name ILIKE $1
+        ORDER BY (name ILIKE $2) DESC, (kind = 'city') DESC, n DESC LIMIT 15`,
+      [`%${q.replace(/[%_]/g, '')}%`, `${q.replace(/[%_]/g, '')}%`])
+    res.json({ areas: r.rows.map(a => ({ name: a.name, kind: a.kind, county: COUNTIES[a.county_no]?.name, lat: a.lat, lng: a.lng, count: a.n })) })
+  } catch (e) {
+    console.error('Map areas failed:', e.message)
+    res.json({ areas: [] })
+  }
+})
+
 router.get('/parcels', async (req, res) => {
   try {
     const minLat = num(req.query.minLat), maxLat = num(req.query.maxLat)
