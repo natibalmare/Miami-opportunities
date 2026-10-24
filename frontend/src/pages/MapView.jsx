@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+/* Bundle the map's background worker with the site (otherwise the browser cannot find it) */
+import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
+maplibregl.setWorkerUrl(mapWorkerUrl)
 import { api } from '../utils/api'
 
 const STYLE = 'https://tiles.openfreemap.org/styles/positron'
