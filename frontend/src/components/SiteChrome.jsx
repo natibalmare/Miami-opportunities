@@ -4,7 +4,7 @@ import { useAuth } from '../utils/AuthContext'
 
 /* Contact details come from Vercel environment variables so they can change without code edits */
 const SUPPORT_PHONE = import.meta.env.VITE_SUPPORT_PHONE || ''
-const SUPPORT_EMAIL = import.meta.env.VITE_SUPPORT_EMAIL || ''
+const SUPPORT_EMAIL = import.meta.env.VITE_SUPPORT_EMAIL || 'support@miamiopportunities.com'
 
 const store = {
   get(k) { try { return localStorage.getItem(k) } catch { return null } },
