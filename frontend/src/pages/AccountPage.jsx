@@ -172,7 +172,7 @@ export default function AccountPage() {
             <div className="card-header"><div className="t-label">Report History</div></div>
             <div className="card-body" style={{ color: '#9A9488', fontSize: 12.5 }}>
               No reports purchased yet.
-              <a href="#" onClick={e => { e.preventDefault(); nav('/') }} style={{ color: '#A88C38', fontWeight: 500, marginLeft: 5 }}>Search a property →</a>
+              <a href="#" onClick={e => { e.preventDefault(); nav('/search') }} style={{ color: '#A88C38', fontWeight: 500, marginLeft: 5 }}>Search a property →</a>
             </div>
           </div>
         </div>

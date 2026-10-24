@@ -46,7 +46,7 @@ export default function LeadsDashboard() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-outline btn-sm">📤 Export CSV</button>
-          <button className="btn btn-gold btn-sm" onClick={() => nav('/')}>+ New Search</button>
+          <button className="btn btn-gold btn-sm" onClick={() => nav('/search')}>+ New Search</button>
         </div>
       </div>
 

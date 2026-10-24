@@ -229,7 +229,7 @@ export default function ReportPage() {
         </div>
       </div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 20 }}>
-        <button className="btn btn-gold btn-sm" onClick={() => nav('/')}>← New Search</button>
+        <button className="btn btn-gold btn-sm" onClick={() => nav('/search')}>← New Search</button>
         <button className="btn btn-outline btn-sm" onClick={() => nav('/report?q=332+NW+35th+St&sample=1')}>View Sample Report</button>
       </div>
       <div className="t-label" style={{ marginBottom: 10 }}>Sample Properties in Dataset</div>

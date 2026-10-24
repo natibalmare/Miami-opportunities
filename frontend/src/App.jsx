@@ -16,9 +16,10 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route element={<Layout />}>
-          <Route index element={<SearchPage />} />
+          <Route index element={<AboutPage />} />
+          <Route path="/search" element={<SearchPage />} />
           <Route path="/criteria" element={<CriteriaSearch />} />
-          <Route path="/about" element={<AboutPage />} />
+          <Route path="/about" element={<Navigate to="/" replace />} />
           <Route path="/report" element={<ReportPage />} />
           <Route path="/leads" element={<LeadsDashboard />} />
           <Route path="/map" element={<MapView />} />

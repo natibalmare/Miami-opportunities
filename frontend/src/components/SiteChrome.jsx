@@ -21,7 +21,8 @@ export function InfoBar({ onSignIn }) {
       {SUPPORT_EMAIL && <a style={link} href={`mailto:${SUPPORT_EMAIL}`}>✉ {SUPPORT_EMAIL}</a>}
       {SUPPORT_PHONE && <a style={link} href={`tel:${SUPPORT_PHONE.replace(/[^\d+]/g, '')}`}>☎ {SUPPORT_PHONE}</a>}
       <span style={{ marginLeft: 'auto', display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-        <button style={link} onClick={() => nav('/about')}>About MO</button>
+        <button style={link} onClick={() => nav('/')}>About MO</button>
+        {user && <button style={link} onClick={() => nav('/account')}>My Account</button>}
         <button style={link} onClick={() => nav('/account')}>Plans &amp; Pricing</button>
         {!user && <button style={{ ...link, color: '#D9BC88', fontWeight: 600 }} onClick={onSignIn}>Create Free Account</button>}
       </span>
@@ -71,7 +72,7 @@ export function WelcomePopup({ onSignUp }) {
         <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }} onClick={() => { close(); onSignUp() }}>
           Create Free Account →
         </button>
-        <button onClick={() => { close(); nav('/about') }} style={{ width: '100%', background: 'none', border: '1px solid rgba(196,164,107,0.4)', color: '#D9BC88', padding: '9px', borderRadius: 4, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+        <button onClick={close} style={{ width: '100%', background: 'none', border: '1px solid rgba(196,164,107,0.4)', color: '#D9BC88', padding: '9px', borderRadius: 4, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' }}>
           See what MO does
         </button>
       </div>

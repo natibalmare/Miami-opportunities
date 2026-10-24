@@ -46,7 +46,7 @@ export default function AboutPage() {
           with an Opportunity Score that points you to the owners most likely to sell.
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button className="btn btn-gold" onClick={() => nav('/')}>Search a Property →</button>
+          <button className="btn btn-gold" onClick={() => nav('/search')}>Search a Property →</button>
           <button className="btn" style={{ background: 'transparent', border: '1px solid rgba(196,164,107,0.5)', color: '#D9BC88' }} onClick={() => nav('/account')}>See Plans</button>
         </div>
       </div>

@@ -6,15 +6,13 @@ import AddressSearchInput from './AddressSearchInput'
 import { InfoBar, WelcomePopup, PrivacyCenter } from './SiteChrome'
 
 const NAV = [
-  { path: '/',        label: 'Search',              section: 'Research' },
-  { path: '/criteria', label: 'Criteria Search',    section: null },
-  { path: '/report',  label: 'Property Report',     section: null },
-  { path: '/leads',   label: 'Lead Dashboard',      section: null },
-  { path: '/map',     label: 'Map View',            section: null },
-  { path: '/board',   label: 'Buyer / Seller Board', section: 'Connect' },
-  { path: '/account', label: 'My Account',          section: null },
-  { path: '/about',   label: 'About MO',            section: null },
-  { path: '/sources', label: 'Data Sources',        section: 'System' },
+  { path: '/search',   label: 'Search',               section: 'Research' },
+  { path: '/criteria', label: 'Criteria Search',      section: null },
+  { path: '/map',      label: 'Map View',             section: null },
+  { path: '/leads',    label: 'Lead Dashboard',       section: null },
+  { path: '/report',   label: 'Property Report',      section: null },
+  { path: '/board',    label: 'Buyer / Seller Board', section: 'Connect' },
+  { path: '/sources',  label: 'Data Sources',         section: 'System' },
 ]
 
 const S = {
@@ -79,7 +77,7 @@ export default function Layout() {
     <div style={S.shell}>
       {/* SIDEBAR */}
       <aside style={S.sb}>
-        <div style={S.logo}>
+        <div style={{ ...S.logo, cursor: 'pointer' }} onClick={() => go('/')} title="Miami Opportunities home">
           <div style={S.logoWrap}>
             <span style={S.logoM}>MO</span>
             <span style={S.logoSep} />
@@ -127,7 +125,7 @@ export default function Layout() {
       {/* MAIN */}
       <div style={S.main}>
         <InfoBar onSignIn={() => setAuthOpen(true)} />
-        {loc.pathname !== '/' && (
+        {loc.pathname !== '/search' && (
           <header style={S.topbar}>
             <form style={S.searchWrap} onSubmit={handleTopSearch}>
               <AddressSearchInput

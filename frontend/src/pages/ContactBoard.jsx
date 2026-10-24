@@ -24,10 +24,14 @@ export default function ContactBoard() {
           <div style={{ fontSize: 22, fontWeight: 300, letterSpacing: -0.5 }}>Buyer / Seller Board</div>
           <div style={{ fontSize: 12, color: '#9A9488', marginTop: 3 }}>Connect with buyers, sellers, and agents across South Florida</div>
         </div>
-        <button className="btn btn-gold" onClick={() => user ? setPostOpen(true) : setAuthOpen(true)}>Post Your Listing</button>
+        <button className="btn btn-gold" disabled title="Posting opens soon">Posting Opens Soon</button>
       </div>
 
-      {!user && (
+      <div className="alert alert-info" style={{ marginBottom: 12 }}>
+        The posts below are <strong>examples</strong> of how the board will look. Real buyer and seller posts open soon.
+      </div>
+
+      {false && (
         <div className="alert alert-info" style={{ marginBottom: 16 }}>
           Contact details are visible to registered members only.
           <a href="#" onClick={e => { e.preventDefault(); setAuthOpen(true) }} style={{ color: '#185FA5', fontWeight: 600, marginLeft: 6 }}>Sign in or register free →</a>
@@ -45,7 +49,7 @@ export default function ContactBoard() {
           <div className="card-body">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
               <div>
-                <div style={{ fontSize: 13.5, fontWeight: 500 }}>{l.name}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 500 }}>{l.name} <span className="badge badge-silver" style={{ fontSize: 8.5, marginLeft: 4 }}>Example</span></div>
                 <div style={{ fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase', color: l.role === 'buyer' ? '#185FA5' : '#A88C38', marginTop: 2 }}>{l.role}</div>
               </div>
               <div style={{ fontSize: 11, color: '#9A9488', textAlign: 'right' }}>{l.area}</div>
@@ -57,17 +61,7 @@ export default function ContactBoard() {
             <div style={{ fontSize: 12.5, color: '#6B6456', lineHeight: 1.6, marginBottom: 10 }}>{l.msg}</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 500, color: '#A88C38' }}>{l.budget}</div>
-              <div style={{ display: 'flex', gap: 14, fontSize: 12, color: '#6B6456' }}>
-                {l.phone && (
-                  user
-                    ? <span>📞 (305) 555-{1000 + l.id}</span>
-                    : <a href="#" onClick={e => { e.preventDefault(); setAuthOpen(true) }} style={{ color: '#A88C38' }}>📞 Sign in to view</a>
-                )}
-                {l.email && (
-                  user
-                    ? <span>✉ {l.name.split(' ')[0].toLowerCase()}@example.com</span>
-                    : <a href="#" onClick={e => { e.preventDefault(); setAuthOpen(true) }} style={{ color: '#A88C38' }}>✉ Sign in to view</a>
-                )}
+              <div style={{ fontSize: 11.5, color: '#9AA4A3' }}>Contact details appear here for members</div>
               </div>
             </div>
           </div>
