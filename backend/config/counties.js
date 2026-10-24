@@ -5,6 +5,7 @@ const COUNTIES = {
   23: {
     no: 23, slug: 'miami-dade', name: 'Miami-Dade',
     fdorFile: /^Dade\b/i,
+    pinFile: /^miami-?dade_\d{4}pin\.zip$/i,
     appraiserUrl: 'https://www.miamidade.gov/Apps/PA/propertysearch/',
     taxUrl: 'https://miamidade.county-taxes.com',
     clerkUrl: 'https://www.miamidadeclerk.gov',
@@ -14,6 +15,7 @@ const COUNTIES = {
   16: {
     no: 16, slug: 'broward', name: 'Broward',
     fdorFile: /^Broward\b/i,
+    pinFile: /^broward_\d{4}pin\.zip$/i,
     appraiserUrl: 'https://bcpa.net',
     taxUrl: 'https://www.broward.org/RecordsTaxesTreasury/TaxesFees/Pages/PropertyTaxes.aspx',
     clerkUrl: 'https://www.browardclerk.org',
@@ -23,6 +25,7 @@ const COUNTIES = {
   60: {
     no: 60, slug: 'palm-beach', name: 'Palm Beach',
     fdorFile: /^Palm Beach\b/i,
+    pinFile: /^palm_?beach_\d{4}pin\.zip$/i,
     appraiserUrl: 'https://pbcpao.gov',
     taxUrl: 'https://www.pbctax.gov',
     clerkUrl: 'https://www.mypalmbeachclerk.com',

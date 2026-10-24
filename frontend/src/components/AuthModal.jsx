@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { useAuth } from '../utils/AuthContext'
 import { api } from '../utils/api'
 
-export default function AuthModal({ onClose, afterLogin }) {
+export default function AuthModal({ onClose, afterLogin, initialMode = 'login' }) {
   const { login } = useAuth()
-  const [mode, setMode] = useState('register')
+  const [mode, setMode] = useState(initialMode === 'register' ? 'register' : 'login')
   const [role, setRole] = useState('buyer')
   const [needsAgent, setNeedsAgent] = useState(true)
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '' })
@@ -289,13 +289,13 @@ export default function AuthModal({ onClose, afterLogin }) {
           {mode === 'login' && (
             <div className="form-group">
               <label className="form-label">Email</label>
-              <input className="input" type="email" value={form.email} onChange={set('email')} placeholder="your@email.com" />
+              <input className="input" type="email" autoFocus autoComplete="email" value={form.email} onChange={set('email')} placeholder="your@email.com" />
             </div>
           )}
 
           <div className="form-group">
             <label className="form-label">Password *</label>
-            <input className="input" type="password" value={form.password} onChange={set('password')} placeholder="Minimum 8 characters" />
+            <input className="input" type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={form.password} onChange={set('password')} onKeyDown={e => { if (e.key === 'Enter' && !loading) submit() }} placeholder={mode === 'login' ? 'Your password' : 'Minimum 8 characters'} />
             {mode === 'login' && (
               <div style={{ textAlign: 'right', marginTop: 6 }}>
                 <button style={linkBtn} onClick={() => goTo('forgot')}>Forgot password?</button>
@@ -313,12 +313,20 @@ export default function AuthModal({ onClose, afterLogin }) {
             {loading ? 'Please wait…' : mode === 'register' ? 'Create Free Account →' : 'Sign In →'}
           </button>
 
-          <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11, color: '#9A9488' }}>
-            {mode === 'register'
-              ? <span>Already have an account? <button style={{ background: 'none', border: 'none', color: '#A88C38', cursor: 'pointer', fontSize: 11 }} onClick={() => goTo('login')}>Sign in</button></span>
-              : <span>New here? <button style={{ background: 'none', border: 'none', color: '#A88C38', cursor: 'pointer', fontSize: 11 }} onClick={() => goTo('register')}>Create account</button></span>
-            }
-          </div>
+          {mode === 'register' ? (
+            <div style={{ textAlign: 'center', marginTop: 12, fontSize: 12, color: '#9A9488' }}>
+              Already have an account? <button style={{ background: 'none', border: 'none', color: '#A88C38', cursor: 'pointer', fontSize: 12, fontWeight: 600 }} onClick={() => goTo('login')}>Sign in</button>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0 10px' }}>
+                <div style={{ flex: 1, height: 1, background: '#DDD8CC' }} />
+                <div style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: '#9A9488' }}>New to MO?</div>
+                <div style={{ flex: 1, height: 1, background: '#DDD8CC' }} />
+              </div>
+              <button className="btn btn-outline" style={{ width: '100%', justifyContent: 'center', borderRadius: 4 }} onClick={() => goTo('register')}>Create a Free Account</button>
+            </>
+          )}
         </div>
       </div>
     </div>

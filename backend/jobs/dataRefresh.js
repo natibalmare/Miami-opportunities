@@ -6,6 +6,7 @@ const { pool, query } = require('../db/pool')
 const { COUNTIES } = require('../config/counties')
 const { findLatestFile, importCounty } = require('../adapters/fdorRoll')
 const { enrichMiamiDade } = require('../adapters/mdpaEnrich')
+const { findLatestPinFile, importPins } = require('../adapters/fdorPins')
 
 const LOCK_KEY = 778899
 /* Railway Hobby volumes max out at 5 GB — stop loading well before the disk fills */
@@ -65,6 +66,15 @@ async function runOnce() {
           const stale = !enrich || (roll && new Date(enrich.finished_at) < new Date(roll.finished_at)) ||
             Date.now() - new Date(enrich.finished_at).getTime() > 30 * DAY
           if (roll && stale && !(await dbTooBig())) await enrichMiamiDade()
+        }
+
+        /* Map points: reload only when a newer state map file is published */
+        const pin = await findLatestPinFile(county)
+        if (pin) {
+          const donePin = await lastDone(county.no, 'fdor-pin')
+          const newPin = !donePin || donePin.file_name !== pin.name ||
+            (pin.modified && new Date(pin.modified) > new Date(donePin.file_modified || 0))
+          if (newPin && !(await dbTooBig())) await importPins(county, pin)
         }
       } catch (e) {
         console.error(`[data] ${county.name}: refresh error —`, e.message)

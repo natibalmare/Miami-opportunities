@@ -12,7 +12,7 @@ const store = {
 }
 
 /* ── Thin contact / quick-link bar above the header ───────────────────────── */
-export function InfoBar({ onSignIn }) {
+export function InfoBar({ onSignIn, onSignUp }) {
   const nav = useNavigate()
   const { user } = useAuth()
   const link = { color: 'rgba(250,248,242,0.85)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, fontFamily: 'inherit', padding: 0, textDecoration: 'none', whiteSpace: 'nowrap' }
@@ -24,7 +24,8 @@ export function InfoBar({ onSignIn }) {
         <button style={link} onClick={() => nav('/')}>About MO</button>
         {user && <button style={link} onClick={() => nav('/account')}>My Account</button>}
         <button style={link} onClick={() => nav('/account')}>Plans &amp; Pricing</button>
-        {!user && <button style={{ ...link, color: '#D9BC88', fontWeight: 600 }} onClick={onSignIn}>Create Free Account</button>}
+        {!user && <button style={link} onClick={onSignIn}>Sign In</button>}
+        {!user && <button style={{ ...link, color: '#D9BC88', fontWeight: 600 }} onClick={onSignUp || onSignIn}>Create Free Account</button>}
       </span>
     </div>
   )

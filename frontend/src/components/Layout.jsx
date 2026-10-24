@@ -62,6 +62,8 @@ export default function Layout() {
   const navigate = useNavigate()
   const loc = useLocation()
   const [authOpen, setAuthOpen] = useState(false)
+  const [authMode, setAuthMode] = useState('login')
+  const openAuth = (m = 'login') => { setAuthMode(m); setAuthOpen(true) }
   const [topQ, setTopQ] = useState('')
 
   const initials = user ? ((user.firstName?.[0] || '') + (user.lastName?.[0] || '')).toUpperCase() : '?'
@@ -116,7 +118,7 @@ export default function Layout() {
           {user ? (
             <button className="btn btn-ghost btn-sm" style={{ width: '100%', color: 'rgba(255,255,255,0.4)', borderColor: 'rgba(255,255,255,0.1)' }} onClick={logout}>Sign Out</button>
           ) : (
-            <button className="btn btn-ghost btn-sm" style={{ width: '100%', color: 'rgba(196,164,107,0.7)', borderColor: 'rgba(196,164,107,0.2)' }} onClick={() => setAuthOpen(true)}>Sign In / Register</button>
+            <button className="btn btn-ghost btn-sm" style={{ width: '100%', color: 'rgba(196,164,107,0.7)', borderColor: 'rgba(196,164,107,0.2)' }} onClick={() => openAuth('login')}>Sign In / Register</button>
           )}
         </div>
 
@@ -124,7 +126,7 @@ export default function Layout() {
 
       {/* MAIN */}
       <div style={S.main}>
-        <InfoBar onSignIn={() => setAuthOpen(true)} />
+        <InfoBar onSignIn={() => openAuth('login')} onSignUp={() => openAuth('register')} />
         {loc.pathname !== '/search' && (
           <header style={S.topbar}>
             <form style={S.searchWrap} onSubmit={handleTopSearch}>
@@ -139,7 +141,7 @@ export default function Layout() {
               <button type="submit" style={S.topBtn}>Search →</button>
             </form>
             <div style={S.topR}>
-              <div style={{ ...S.av, cursor: 'pointer' }} onClick={() => user ? go('/account') : setAuthOpen(true)}>{initials}</div>
+              <div style={{ ...S.av, cursor: 'pointer' }} onClick={() => user ? go('/account') : openAuth('login')}>{initials}</div>
             </div>
           </header>
         )}
@@ -152,8 +154,8 @@ export default function Layout() {
         </main>
       </div>
 
-      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
-      <WelcomePopup onSignUp={() => setAuthOpen(true)} />
+      {authOpen && <AuthModal initialMode={authMode} onClose={() => setAuthOpen(false)} />}
+      <WelcomePopup onSignUp={() => openAuth('register')} />
       <PrivacyCenter />
     </div>
   )

@@ -63,6 +63,17 @@ async function ensureSchema() {
     `CREATE INDEX IF NOT EXISTS idx_parcels_addr ON parcels (phy_addr1 text_pattern_ops)`,
     `CREATE INDEX IF NOT EXISTS idx_parcels_owner ON parcels (own_name text_pattern_ops)`,
 
+    // One map point per parcel (from the state parcel map files)
+    `CREATE TABLE IF NOT EXISTS parcel_points (
+       county_no  SMALLINT NOT NULL,
+       parcel_id  TEXT NOT NULL,
+       lat        REAL NOT NULL,
+       lng        REAL NOT NULL,
+       import_id  INTEGER,
+       PRIMARY KEY (county_no, parcel_id)
+     )`,
+    `CREATE INDEX IF NOT EXISTS idx_parcel_points_latlng ON parcel_points (lat, lng)`,
+
     // History of each county load, so the app knows what is loaded and when
     `CREATE TABLE IF NOT EXISTS data_imports (
        id          SERIAL PRIMARY KEY,

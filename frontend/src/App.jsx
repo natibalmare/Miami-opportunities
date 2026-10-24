@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './utils/AuthContext'
 import Layout from './components/Layout'
@@ -6,7 +7,7 @@ import ReportPage from './pages/ReportPage'
 import CriteriaSearch from './pages/CriteriaSearch'
 import AboutPage from './pages/AboutPage'
 import LeadsDashboard from './pages/LeadsDashboard'
-import MapView from './pages/MapView'
+const MapView = lazy(() => import('./pages/MapView'))
 import ContactBoard from './pages/ContactBoard'
 import AccountPage from './pages/AccountPage'
 import DataSources from './pages/DataSources'
@@ -22,7 +23,7 @@ export default function App() {
           <Route path="/about" element={<Navigate to="/" replace />} />
           <Route path="/report" element={<ReportPage />} />
           <Route path="/leads" element={<LeadsDashboard />} />
-          <Route path="/map" element={<MapView />} />
+          <Route path="/map" element={<Suspense fallback={<div style={{ padding: 30, color: '#9A9488' }}>Loading map…</div>}><MapView /></Suspense>} />
           <Route path="/board" element={<ContactBoard />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/sources" element={<DataSources />} />

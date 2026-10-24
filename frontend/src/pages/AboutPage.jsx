@@ -6,6 +6,7 @@ const LIVE = [
   ['Criteria search & lead lists', 'Search by location, property type, living area, lot size, beds/baths, year built, value, owner type and occupancy — or start from a ready-made lead list. Export to CSV.'],
   ['Investment calculators', 'Mortgage payment with this week’s average rate, plus rental cash flow, cap rate and cash-on-cash return using area rent benchmarks.'],
   ['Pre-offer property report', 'Everything on one page instead of four or five county websites — for a fraction of what a title search costs.'],
+  ['Map view', 'Every property on a map, colored by Opportunity Score, with lead-list and property-type filters.'],
   ['Address autocomplete', 'Real addresses appear as you type, like a map search.'],
 ]
 
@@ -17,7 +18,7 @@ const SOON = [
   'MLS sold comps, ARV and rental comps',
   'Saved lead lists with email alerts',
   'Owner contact lookup (skip tracing)',
-  'Map view and heat maps',
+  'Heat maps',
   'Team seats',
   'Spanish version',
 ]
