@@ -1,5 +1,6 @@
 const router = require('express').Router()
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+/* Managed Payments (on by default for this Stripe account) needs API version 2025-03-31.basil or newer */
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-03-31.basil' })
 const { query, pool } = require('../db/pool')
 const { requireAuth } = require('../middleware/auth')
 
